@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voucher MyPro XMax</title>
+    <!-- Tailwind CSS (CDN for demo) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        shopee: '#ee4d2d',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Shopee.svg/2560px-Shopee.svg.png" class="h-8 w-8 object-contain" alt="Logo">
+                    <h1 class="text-xl font-black text-orange-500 tracking-tight">VOUCHER<span class="text-gray-800">MAX</span></h1>
+                    <div id="stats-badge" class="hidden ml-3 bg-green-50 text-green-700 px-2 py-0.5 rounded text-xs font-bold border border-green-200">
+                        ✅ 94% mã dùng được
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 bg-orange-50 text-orange-600 px-3 py-1 rounded-full font-semibold text-sm">
+                    👤 User Demo
+                </div>
+            </div>
+            
+            <!-- Tabs -->
+            <div class="flex space-x-8 mt-2">
+                <button id="tab-scanner" class="pb-3 text-sm font-bold border-b-2 transition-colors text-orange-500 border-orange-500">
+                    🔍 Tra Cứu Shopee
+                </button>
+                <button id="tab-storage" class="pb-3 text-sm font-bold border-b-2 transition-colors text-gray-500 border-transparent hover:text-gray-700">
+                    📦 Kho Của Tôi
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- ==============================================
+             VIEW 1: SMART SCANNER
+             ============================================== -->
+        <div id="view-scanner">
+            
+            <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-8 text-white shadow-lg mb-8 text-center relative overflow-hidden">
+                <!-- Background decoration -->
+                <div class="absolute top-0 right-0 opacity-10">
+                    <svg width="200" height="200" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="currentColor"/></svg>
+                </div>
+                
+                <h2 class="text-2xl sm:text-3xl font-extrabold mb-3 relative z-10">Smart Scanner Siêu Tốc</h2>
+                <p class="text-orange-100 mb-6 relative z-10">Dán link sản phẩm Shopee, nhận ngay mã giảm giá tốt nhất.</p>
+                
+                <div class="flex flex-col sm:flex-row gap-3 relative z-10">
+                    <input type="text" id="scanner-input" placeholder="https://shopee.vn/..." 
+                           class="flex-grow px-4 py-3 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400 shadow-inner">
+                    <button id="btn-scan" onclick="scanShopeeLink()" 
+                            class="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold px-8 py-3 rounded-lg transition shadow-md whitespace-nowrap">
+                        Quét Mã Ngay
+                    </button>
+                </div>
+                <div id="scanner-error" class="hidden mt-3 text-yellow-200 text-sm font-medium text-left"></div>
+            </div>
+
+            <!-- Kết quả Scanner -->
+            <div id="scanner-results" class="min-h-[200px]">
+                <div class="text-center text-gray-400 mt-10">
+                    <div class="text-5xl mb-3">🛍️</div>
+                    <p>Hãy dán link vào ô bên trên để bắt đầu tìm mã</p>
+                </div>
+            </div>
+            
+        </div>
+
+        <!-- ==============================================
+             VIEW 2: KHO LƯU TRỮ
+             ============================================== -->
+        <div id="view-storage" class="hidden">
+            <h2 class="text-2xl font-extrabold text-gray-800 mb-6">Kho Voucher Của Tôi</h2>
+            
+            <!-- Module Tiết Kiệm (UI Demo) -->
+            <div class="bg-green-50 border border-green-200 rounded-xl p-6 flex items-center gap-6 mb-8 shadow-sm">
+                <div class="bg-green-100 text-green-600 w-16 h-16 rounded-full flex items-center justify-center text-3xl flex-shrink-0">
+                    💰
+                </div>
+                <div>
+                    <div class="text-green-800 font-medium mb-1">Tổng tiền tiết kiệm lũy kế:</div>
+                    <div id="savings-amount" class="text-3xl font-black text-green-600">0đ</div>
+                </div>
+            </div>
+
+            <!-- Storage Grid -->
+            <div id="storage-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Nội dung sẽ được render từ storage.js -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- JS Modules -->
+    <script src="js/config.js"></script>
+    <script src="js/toast.js"></script>
+    <script src="js/voucherCard.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/savingsReport.js"></script>
+    <script src="js/scanner.js"></script>
+
+    <script>
+        // Fetch stats
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await fetch(`${CONFIG.API_BASE_URL}/stats/success-rate`);
+                const data = await res.json();
+                if (data.success && !data.low_sample) {
+                    const badge = document.getElementById('stats-badge');
+                    badge.innerHTML = \`✅ \${data.success_rate}% mã dùng được (\${data.period_days} ngày qua)\`;
+                    badge.classList.remove('hidden');
+                }
+            } catch (e) {}
+        });
+    </script>
+</body>
+</html>

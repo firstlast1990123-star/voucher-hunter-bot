@@ -1,0 +1,65 @@
+{
+  "_schema_description": "Firebase Realtime DB / Firestore Schema cho VoucherMyProXMax",
+  
+  "vouchers_public": {
+    "$voucher_id": {
+      "id": "string — ID duy nhất (api_123 hoặc v1)",
+      "title": "string — Tên mã giảm giá",
+      "code": "string — Mã ký tự (VD: SHOPEE30K)",
+      "smartCategory": "string — freeship | cashback | percent | brand | direct",
+      "discountVal": "string — Giá trị giảm (30.000đ / 15% OFF)",
+      "minSpendAmount": "number — Đơn tối thiểu (VD: 150000)",
+      "minSpend": "string — Text hiển thị (Đơn tối thiểu 150.000đ)",
+      "maxDiscount": "string | null — Giảm tối đa",
+      "startTime": "string | null — ISO datetime bắt đầu",
+      "endTime": "string | null — ISO datetime hết hạn",
+      "content": "string — Mô tả chi tiết điều kiện",
+      "targetCategories": "string — Danh mục áp dụng (Toàn Sàn / Thời Trang)",
+      "isVipOnly": "boolean — Chỉ VIP mới thấy",
+      "remain": "number | null — Số lượt còn lại",
+      "source": "string — AccessTrade | Manual",
+      "validatedAt": "string — ISO datetime lần validate cuối",
+      "isActive": "boolean — true nếu còn hiệu lực"
+    }
+  },
+
+  "users": {
+    "$user_id": {
+      "email": "string",
+      "displayName": "string",
+      "accountState": "string — FREE | TRIAL | PAID",
+      "vipExpiry": "string | null — ISO datetime hết hạn VIP",
+      "createdAt": "string — ISO datetime",
+      "savedVouchers": {
+        "$voucher_id": {
+          "code": "string",
+          "title": "string",
+          "savedAt": "string — ISO datetime",
+          "discountVal": "string",
+          "isUsed": "boolean — đã sử dụng chưa",
+          "usedAt": "string | null"
+        }
+      },
+      "savingsReport": {
+        "totalSaved": "number — Tổng tiền tiết kiệm ước tính (VNĐ)",
+        "totalCodesUsed": "number — Số mã đã dùng",
+        "history": {
+          "$entry_id": {
+            "code": "string",
+            "amount": "number — Số tiền tiết kiệm",
+            "date": "string — ISO datetime"
+          }
+        }
+      }
+    }
+  },
+
+  "sync_logs": {
+    "$log_id": {
+      "syncedAt": "string — ISO datetime",
+      "totalRaw": "number",
+      "totalValid": "number",
+      "source": "string — AccessTrade"
+    }
+  }
+}
