@@ -71,9 +71,9 @@ router.post('/', async (req, res) => {
         // 5. Chuẩn bị response
         let responseData;
         if (vouchers.length > 0) {
-            responseData = { success: true, vouchers, new_vouchers_hidden_count };
+            responseData = { success: true, shop_name: "Shopee", vouchers, new_vouchers_hidden_count };
         } else {
-            responseData = { success: true, vouchers: [], new_vouchers_hidden_count, message: "Chưa tìm thấy mã giảm giá nào cho sản phẩm/shop này." };
+            responseData = { success: true, shop_name: "Shopee", vouchers: [], new_vouchers_hidden_count, message: "Chưa tìm thấy mã giảm giá nào cho sản phẩm/shop này." };
         }
         
         // 6. Lưu cache

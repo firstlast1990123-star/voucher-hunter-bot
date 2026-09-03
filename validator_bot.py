@@ -8,11 +8,12 @@ Bao gồm cơ chế Re-check ưu tiên mã sắp hết hạn.
 import time
 import requests
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pymongo import MongoClient
 
 import config
 import voucher_validator_core
+from notify_admin import notify_admin
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger("ValidatorBot")
@@ -34,6 +35,10 @@ def process_pending_vouchers(db):
             is_valid, reason = voucher_validator_core.validate_voucher_core(voucher, db, "validator_bot")
             
             if is_valid:
+                # Kiểm tra xem mã này đã từng có trong live_vouchers chưa
+                existing = db.live_vouchers.find_one({"code": code})
+                is_new_publish = existing is None
+                
                 db.live_vouchers.update_one(
                     {"code": code},
                     {"$set": {
@@ -55,6 +60,43 @@ def process_pending_vouchers(db):
                     upsert=True
                 )
                 logger.info(f"[ĐÃ XUẤT BẢN - MÃ XÀI ĐƯỢC] Mã: {code} | Merchant: {merchant} | HSD: {voucher.get('valid_to')}")
+                
+                # Nếu là mã mới hoàn toàn -> Trigger hàng đợi thông báo Telegram
+                if is_new_publish:
+                    subs = list(db.telegram_subscriptions.find({"merchant": merchant}))
+                    if subs:
+                        now_str = datetime.now(timezone.utc).isoformat()
+                        published_at = datetime.now(timezone.utc)
+                        delayed_time = (published_at + timedelta(minutes=config.VIP_EARLY_ACCESS_MINUTES)).isoformat()
+                        
+                        queue_docs = []
+                        for sub in subs:
+                            is_vip = False
+                            user_id = sub.get("user_id")
+                            if user_id:
+                                user = db.users.find_one({"_id": user_id})
+                                if user and user.get("membership") == "vip":
+                                    vip_expired = user.get("vip_expired_at")
+                                    if vip_expired:
+                                        vip_expired_dt = voucher_validator_core.parse_iso_datetime(vip_expired)
+                                        if vip_expired_dt and vip_expired_dt > datetime.now(timezone.utc):
+                                            is_vip = True
+                                            
+                            priority = "instant" if is_vip else "delayed"
+                            eligible_send_at = now_str if is_vip else delayed_time
+                            
+                            queue_docs.append({
+                                "chat_id": sub["chat_id"],
+                                "voucher_code": code,
+                                "title": voucher.get('title'),
+                                "merchant": merchant,
+                                "priority": priority,
+                                "eligible_send_at": eligible_send_at,
+                                "created_at": now_str,
+                                "sent": False
+                            })
+                        db.telegram_notification_queue.insert_many(queue_docs)
+                        logger.info(f"Đã thêm {len(subs)} task báo mã mới vào queue.")
             else:
                 logger.info(f"[ĐÃ LOẠI BỎ] Mã: {code} | Lý do: {reason}")
                 
@@ -236,6 +278,9 @@ def main():
             time.sleep(config.VALIDATOR_INTERVAL)
     except KeyboardInterrupt:
         logger.info("Tắt Validator Bot...")
+    except Exception as e:
+        logger.exception(f"Lỗi crash bot: {e}")
+        notify_admin("Validator Bot Crash", f"Bot đã dừng hoạt động do lỗi không thể phục hồi:\n{e}", priority="urgent")
 
 if __name__ == "__main__":
     main()

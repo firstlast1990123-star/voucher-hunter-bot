@@ -38,6 +38,85 @@ async function loadMyStorage() {
     }
 }
 
+// Gọi API sinh mã liên kết Telegram
+async function generateTelegramLink() {
+    try {
+        const userId = getCurrentUserId();
+        const res = await fetch(`${CONFIG.API_BASE_URL}/user/generate-telegram-link-code`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            const container = document.getElementById('telegram-link-container');
+            const codeSpan = document.getElementById('telegram-link-code');
+            const placeholders = document.querySelectorAll('.tg-code-placeholder');
+            
+            codeSpan.textContent = data.code;
+            placeholders.forEach(el => el.textContent = data.code);
+            
+            container.classList.remove('hidden');
+            showToast('Đã tạo mã liên kết thành công!', 'success');
+        } else {
+            showToast(data.error || 'Lỗi tạo mã liên kết', 'error');
+        }
+    } catch (e) {
+        showToast('Lỗi mạng', 'error');
+    }
+}
+
+// Data Subject Rights
+async function exportMyData() {
+    try {
+        const userId = getCurrentUserId();
+        const res = await fetch(`${CONFIG.API_BASE_URL}/user/export-my-data?user_id=${userId}`);
+        const data = await res.json();
+        if (res.ok && data.success) {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data.data, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `my_data_${userId}.json`);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            showToast('Đã tải xuống dữ liệu cá nhân!', 'success');
+        } else {
+            showToast(data.error || 'Lỗi tải dữ liệu', 'error');
+        }
+    } catch (e) {
+        showToast('Lỗi mạng', 'error');
+    }
+}
+
+async function requestAccountDeletion() {
+    if (!confirm("Bạn có chắc chắn muốn yêu cầu xóa tài khoản? Quá trình này sẽ không thể hoàn tác sau 7 ngày.")) {
+        return;
+    }
+    // Double confirmation to prevent accidental clicks
+    if (!confirm("CẢNH BÁO LẦN 2: Toàn bộ dữ liệu của bạn, bao gồm các voucher đã lưu và gói VIP sẽ bị vô hiệu hóa. Đồng ý xóa?")) {
+        return;
+    }
+    
+    try {
+        const userId = getCurrentUserId();
+        const res = await fetch(`${CONFIG.API_BASE_URL}/user/request-deletion`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(data.message, 'success');
+        } else {
+            showToast(data.error || 'Lỗi gửi yêu cầu xóa', 'error');
+        }
+    } catch (e) {
+        showToast('Lỗi mạng', 'error');
+    }
+}
+
 // Xử lý chuyển tab
 function switchTab(tabId) {
     const tabs = ['tab-scanner', 'tab-storage'];

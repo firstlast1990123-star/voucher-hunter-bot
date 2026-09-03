@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
 import os
 from flask import Flask, jsonify
 from pymongo import MongoClient
 from datetime import datetime, timezone
 import config
+from notify_admin import notify_admin
 
 app = Flask(__name__)
 
@@ -12,6 +12,7 @@ app = Flask(__name__)
 # Validator: interval 5 phút -> threshold 15 phút
 HUNTER_THRESHOLD = 45 * 60
 VALIDATOR_THRESHOLD = 15 * 60
+ALERT_COOLDOWN = 2 * 3600 # 2 hours
 
 def get_db():
     try:
@@ -42,6 +43,26 @@ def check_bot_health(bot_id, threshold):
         diff = (now - last_heartbeat).total_seconds()
         
         if diff > threshold:
+            # Gửi thông báo nếu vượt ngưỡng cooldown
+            last_alert_str = health_record.get("last_alert_sent_at")
+            should_alert = True
+            
+            if last_alert_str:
+                last_alert = datetime.fromisoformat(last_alert_str)
+                if (now - last_alert).total_seconds() < ALERT_COOLDOWN:
+                    should_alert = False
+                    
+            if should_alert:
+                notify_admin(
+                    title=f"Bot Treo: {bot_id}",
+                    message=f"Bot đã ngừng phản hồi.\nHeartbeat cuối: {last_heartbeat_str}\nTrễ: {int(diff)} giây.",
+                    priority="high"
+                )
+                db.bot_health.update_one(
+                    {"_id": bot_id},
+                    {"$set": {"last_alert_sent_at": now.isoformat()}}
+                )
+
             return jsonify({
                 "status": "down", 
                 "error": f"Heartbeat is too old: {int(diff)} seconds",

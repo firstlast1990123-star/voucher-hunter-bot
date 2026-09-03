@@ -10,8 +10,10 @@ DB_NAME = os.getenv("DB_NAME", "voucher_db")
 ACCESSTRADE_API_KEY = os.getenv("ACCESSTRADE_API_KEY", "")
 ACCESSTRADE_ENDPOINT = os.getenv("ACCESSTRADE_ENDPOINT", "https://api.accesstrade.vn/v1/offers/coupons")
 
-HUNTER_INTERVAL = int(os.getenv("HUNTER_INTERVAL", 900))  # Mặc định 15 phút
-VALIDATOR_INTERVAL = int(os.getenv("VALIDATOR_INTERVAL", 300))  # Mặc định 5 phút
+# Configuration cho Bots
+HUNTER_INTERVAL = 30 * 60  # 30 phút cào 1 lần
+VALIDATOR_INTERVAL = 5 * 60  # 5 phút duyệt 1 lần
+VIP_EARLY_ACCESS_MINUTES = 15 # Thời gian VIP được xem/nhận thông báo trước
 
 # Danh sách các site whitelist để scraping (ví dụ minh hoạ)
 WHITELIST_URLS = [

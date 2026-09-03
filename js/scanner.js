@@ -56,7 +56,8 @@ async function scanShopeeLink() {
         
         const data = await res.json();
         
-        let html = '<div class="mt-6 mb-3 text-lg font-bold text-gray-800">✅ Đã tìm thấy mã cho sản phẩm này:</div>';
+        const shopName = data.shop_name || 'Shopee';
+        let html = `<div class="mt-6 mb-3 text-lg font-bold text-gray-800">✅ Đã tìm thấy mã cho shop: <span class="text-orange-500">${shopName}</span></div>`;
         
         if (data.new_vouchers_hidden_count > 0) {
             html += `

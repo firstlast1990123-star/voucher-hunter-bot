@@ -23,7 +23,7 @@
     <!-- Header -->
     <header class="bg-white shadow-sm sticky top-0 z-40">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center py-4 border-b border-gray-100">
+                <div class="flex justify-between items-center py-4 border-b border-gray-100">
                 <div class="flex items-center gap-2">
                     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Shopee.svg/2560px-Shopee.svg.png" class="h-8 w-8 object-contain" alt="Logo">
                     <h1 class="text-xl font-black text-orange-500 tracking-tight">VOUCHER<span class="text-gray-800">MAX</span></h1>
@@ -31,7 +31,7 @@
                         ✅ 94% mã dùng được
                     </div>
                 </div>
-                <div class="flex items-center gap-2 bg-orange-50 text-orange-600 px-3 py-1 rounded-full font-semibold text-sm">
+                <div id="user-profile-badge" class="flex items-center gap-2 bg-orange-50 hover:bg-orange-100 cursor-pointer text-orange-600 px-3 py-1 rounded-full font-semibold text-sm transition">
                     👤 User Demo
                 </div>
             </div>
@@ -90,7 +90,18 @@
              VIEW 2: KHO LƯU TRỮ
              ============================================== -->
         <div id="view-storage" class="hidden">
-            <h2 class="text-2xl font-extrabold text-gray-800 mb-6">Kho Voucher Của Tôi</h2>
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-extrabold text-gray-800">Kho Voucher Của Tôi</h2>
+                <button onclick="generateTelegramLink()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm">
+                    🔗 Liên kết Telegram
+                </button>
+            </div>
+            
+            <div id="telegram-link-container" class="hidden bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6 text-sm">
+                <div class="font-bold mb-1">Mã liên kết của bạn: <span id="telegram-link-code" class="text-lg bg-white px-2 py-1 rounded border"></span></div>
+                <p>Mở Telegram, nhắn cho bot lệnh: <code class="bg-white px-1 rounded text-pink-600 font-bold">/lienket <span class="tg-code-placeholder"></span></code></p>
+                <p class="text-xs mt-1 text-gray-500">Mã có hiệu lực trong 10 phút.</p>
+            </div>
             
             <!-- Module Tiết Kiệm (UI Demo) -->
             <div class="bg-green-50 border border-green-200 rounded-xl p-6 flex items-center gap-6 mb-8 shadow-sm">
@@ -107,9 +118,69 @@
             <div id="storage-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Nội dung sẽ được render từ storage.js -->
             </div>
+            <!-- Quyền riêng tư của tôi -->
+            <div class="bg-white border border-gray-200 rounded-xl p-6 mt-8 shadow-sm">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Quyền riêng tư của tôi</h3>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button onclick="exportMyData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded shadow-sm border transition flex-1">
+                        📥 Tải xuống dữ liệu của tôi
+                    </button>
+                    <button onclick="requestAccountDeletion()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2 px-4 rounded shadow-sm border border-red-200 transition flex-1">
+                        🗑️ Yêu cầu xóa tài khoản
+                    </button>
+                </div>
+            </div>
         </div>
 
     </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-12 py-8">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="text-gray-500 text-sm">
+                &copy; 2026 Voucher MyPro XMax. All rights reserved.
+            </div>
+            <div class="flex gap-4 text-sm font-medium">
+                <a href="privacy-policy.html" target="_blank" class="text-gray-500 hover:text-orange-500 transition">Chính sách bảo mật</a>
+                <a href="terms-of-service.html" target="_blank" class="text-gray-500 hover:text-orange-500 transition">Điều khoản sử dụng</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Register Modal (Mock) -->
+    <div id="register-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl m-4">
+            <h3 class="text-2xl font-bold text-gray-900 mb-4">Đăng ký tài khoản</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" class="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Mật khẩu</label>
+                    <input type="password" class="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
+                </div>
+                
+                <div class="mt-4 space-y-3">
+                    <label class="flex items-start gap-2 cursor-pointer">
+                        <input type="checkbox" id="consent-tos" class="mt-1 rounded text-orange-500 focus:ring-orange-500">
+                        <span class="text-sm text-gray-600">Tôi đã đọc và đồng ý với <a href="terms-of-service.html" target="_blank" class="text-orange-500 hover:underline">Điều khoản sử dụng</a> và <a href="privacy-policy.html" target="_blank" class="text-orange-500 hover:underline">Chính sách bảo mật</a> <span class="text-red-500">*</span></span>
+                    </label>
+                    <label class="flex items-start gap-2 cursor-pointer">
+                        <input type="checkbox" id="consent-marketing" class="mt-1 rounded text-orange-500 focus:ring-orange-500">
+                        <span class="text-sm text-gray-600">Đồng ý nhận thông báo ưu đãi và mã giảm giá mới qua Email / Telegram</span>
+                    </label>
+                </div>
+                
+                <button onclick="submitRegister()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded shadow transition mt-2">
+                    Đăng ký
+                </button>
+                <button onclick="document.getElementById('register-modal').classList.add('hidden')" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded shadow transition mt-2">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- JS Modules -->
     <script src="js/config.js"></script>
@@ -122,16 +193,57 @@
     <script>
         // Fetch stats
         document.addEventListener('DOMContentLoaded', async () => {
+            // Show register modal logic demo
+            const user = document.getElementById('user-profile-badge');
+            if (user) {
+                user.addEventListener('click', () => {
+                    document.getElementById('register-modal').classList.remove('hidden');
+                });
+            }
+
             try {
                 const res = await fetch(`${CONFIG.API_BASE_URL}/stats/success-rate`);
                 const data = await res.json();
                 if (data.success && !data.low_sample) {
                     const badge = document.getElementById('stats-badge');
-                    badge.innerHTML = \`✅ \${data.success_rate}% mã dùng được (\${data.period_days} ngày qua)\`;
+                    badge.innerHTML = `✅ ${data.success_rate}% mã dùng được (${data.period_days} ngày qua)`;
                     badge.classList.remove('hidden');
                 }
             } catch (e) {}
         });
+
+        async function submitRegister() {
+            const tosAccepted = document.getElementById('consent-tos').checked;
+            const marketingAccepted = document.getElementById('consent-marketing').checked;
+            
+            if (!tosAccepted) {
+                showToast('Vui lòng đồng ý với Điều khoản sử dụng và Chính sách bảo mật', 'error');
+                return;
+            }
+
+            try {
+                const userId = getCurrentUserId(); // Demo ID
+                const res = await fetch(`${CONFIG.API_BASE_URL}/user/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        consent_accepted: tosAccepted,
+                        allow_marketing: marketingAccepted
+                    })
+                });
+                
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('Đăng ký thành công!', 'success');
+                    document.getElementById('register-modal').classList.add('hidden');
+                } else {
+                    showToast(data.error || 'Lỗi đăng ký', 'error');
+                }
+            } catch (e) {
+                showToast('Lỗi mạng', 'error');
+            }
+        }
     </script>
 </body>
 </html>

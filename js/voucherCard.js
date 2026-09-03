@@ -114,6 +114,17 @@ function renderVoucherCard(v) {
         </button>
     `;
 
+    // Hiển thị điều kiện mã rõ ràng
+    let discountText = v.discount_value || 'Giảm sốc';
+    if (v.discount_type === 'percent') {
+        discountText = `Giảm ${v.discount_value}%`;
+        if (v.discount_max_value) {
+            discountText += `, tối đa ${v.discount_max_value}đ`;
+        }
+    } else if (v.discount_type === 'fixed') {
+        discountText = `Giảm ${v.discount_value}đ`;
+    }
+
     return `
     <div id="card-${v.code}" class="relative bg-white rounded-lg p-4 shadow flex flex-col h-full border border-gray-200 transition hover:shadow-lg">
         ${reportHtml}
@@ -125,9 +136,9 @@ function renderVoucherCard(v) {
             </div>
         </div>
         <div class="flex-grow">
-            <div class="text-xl font-extrabold text-orange-500">${v.discount_value || ''}</div>
-            ${v.min_order_value ? `<div class="text-xs text-gray-500 mt-1">Đơn tối thiểu: đ${v.min_order_value.toLocaleString()}</div>` : ''}
-            ${v.valid_to ? `<div class="text-xs text-red-500 mt-1 font-medium">HSD: ${new Date(v.valid_to).toLocaleDateString()}</div>` : ''}
+            <div class="text-xl font-extrabold text-orange-500">${discountText}</div>
+            ${v.min_order_value ? `<div class="text-xl font-bold text-gray-700 mt-1">Đơn tối thiểu ${v.min_order_value.toLocaleString()}đ</div>` : ''}
+            ${v.valid_to ? `<div class="text-xs text-red-500 mt-2 font-medium">HSD: ${new Date(v.valid_to).toLocaleDateString()}</div>` : ''}
         </div>
         ${actionHtml}
     </div>

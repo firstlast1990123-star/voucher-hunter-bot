@@ -15,6 +15,7 @@ from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
 import config
+from notify_admin import notify_admin
 
 # Cấu hình logging ra console
 logging.basicConfig(
@@ -36,6 +37,8 @@ def get_db():
     except Exception as e:
         logger.error(f"Lỗi MongoDB: {e}")
         return None
+
+# ... [Tránh thay đổi mã không cần thiết, nên sửa cụ thể từng block] ...
 
 def parse_discount(discount_str):
     if not discount_str: return "fixed", 0, None
@@ -245,6 +248,7 @@ def main():
         logger.info("Đã nhận KeyboardInterrupt. Đang tắt Hunter Bot an toàn...")
     except Exception as e:
         logger.exception(f"Lỗi crash bot: {e}")
+        notify_admin("Hunter Bot Crash", f"Bot đã dừng hoạt động do lỗi không thể phục hồi:\n{e}", priority="urgent")
 
 if __name__ == "__main__":
     main()
