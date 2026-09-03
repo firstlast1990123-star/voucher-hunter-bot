@@ -1,0 +1,32 @@
+name: Daily Process Deletion
+
+on:
+  schedule:
+    # Chạy vào 2:00 sáng giờ Việt Nam (UTC+7) -> tương đương 19:00 UTC hôm trước
+    - cron: '0 19 * * *'
+  
+  # Hỗ trợ chạy manual từ giao diện GitHub
+  workflow_dispatch:
+
+jobs:
+  run-deletion-cron:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+        
+      - name: Run deletion script
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: python process_deletion.py
