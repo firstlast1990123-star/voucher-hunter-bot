@@ -1,0 +1,33 @@
+name: Cleanup Old Logs
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'   # Chạy 1 lần/tuần, Chủ nhật 3h sáng (UTC)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Chạy chế độ DRY_RUN (chỉ đếm, không xóa)'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - run: pip install -r requirements.txt
+      
+      - run: python cleanup_old_logs.py
+        env:
+          # Nếu trigger qua schedule, lấy biến DRY_RUN từ default. Theo yêu cầu an toàn, mặc định là true.
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
