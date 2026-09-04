@@ -191,64 +191,63 @@ def fetch_whitelist(db) -> int:
 def main():
     logger.info("Khởi động Hunter Bot...")
     
-    # Đợi DB kết nối được
-    db = None
-    while not db:
-        db = get_db()
-        if not db:
-            time.sleep(5)
+    db = get_db()
+    if not db:
+        logger.error("Không kết nối được DB, thoát...")
+        import sys
+        sys.exit(1)
             
-    cycle_count = 0
     try:
-        while True:
-            cycle_count += 1
-            now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
+        
+        # Ghi heartbeat trước khi bắt đầu
+        try:
+            db.bot_health.update_one(
+                {"_id": "hunter_bot"},
+                {"$set": {
+                    "last_heartbeat_at": now,
+                    "cycle_count": 1
+                }},
+                upsert=True
+            )
+        except Exception as e:
+            logger.error(f"Lỗi ghi heartbeat: {e}")
             
-            # Ghi heartbeat trước khi bắt đầu vòng lặp
-            try:
-                db.bot_health.update_one(
-                    {"_id": "hunter_bot"},
-                    {"$set": {
-                        "last_heartbeat_at": now,
-                        "cycle_count": cycle_count
-                    }},
-                    upsert=True
-                )
-            except Exception as e:
-                logger.error(f"Lỗi ghi heartbeat: {e}")
-                
-            logger.info("="*50)
-            logger.info(f"Bắt đầu chu kỳ thu thập dữ liệu (lần {cycle_count})...")
+        logger.info("="*50)
+        logger.info("Bắt đầu chu kỳ thu thập dữ liệu...")
+        
+        error_message = None
+        try:
+            fetch_accesstrade(db)
+            fetch_whitelist(db)
+        except Exception as e:
+            error_message = str(e)
+            logger.exception("Lỗi trong chu kỳ thu thập dữ liệu")
             
-            error_message = None
-            try:
-                fetch_accesstrade(db)
-                fetch_whitelist(db)
-            except Exception as e:
-                error_message = str(e)
-                logger.exception("Lỗi trong chu kỳ thu thập dữ liệu")
-                
-            # Ghi kết quả sau khi xong vòng lặp
-            try:
-                db.bot_health.update_one(
-                    {"_id": "hunter_bot"},
-                    {"$set": {
-                        "last_cycle_result": "error" if error_message else "success",
-                        "last_error_message": error_message
-                    }},
-                    upsert=True
-                )
-            except Exception as e:
-                logger.error(f"Lỗi cập nhật kết quả heartbeat: {e}")
+        # Ghi kết quả sau khi xong
+        try:
+            db.bot_health.update_one(
+                {"_id": "hunter_bot"},
+                {"$set": {
+                    "last_cycle_result": "error" if error_message else "success",
+                    "last_error_message": error_message
+                }},
+                upsert=True
+            )
+        except Exception as e:
+            logger.error(f"Lỗi cập nhật kết quả heartbeat: {e}")
+        
+        logger.info("Hoàn thành chu kỳ.")
+        import sys
+        if error_message:
+            sys.exit(1)
+        sys.exit(0)
             
-            logger.info(f"Hoàn thành chu kỳ. Ngủ {config.HUNTER_INTERVAL} giây...")
-            time.sleep(config.HUNTER_INTERVAL)
-            
-    except KeyboardInterrupt:
-        logger.info("Đã nhận KeyboardInterrupt. Đang tắt Hunter Bot an toàn...")
     except Exception as e:
         logger.exception(f"Lỗi crash bot: {e}")
         notify_admin("Hunter Bot Crash", f"Bot đã dừng hoạt động do lỗi không thể phục hồi:\n{e}", priority="urgent")
+        import sys
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

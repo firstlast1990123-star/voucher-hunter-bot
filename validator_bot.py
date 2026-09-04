@@ -230,57 +230,59 @@ def update_site_stats(db):
 
 def main():
     logger.info("Khởi động Validator Bot...")
-    db = None
-    while not db:
-        db = get_db()
-        if not db: time.sleep(5)
+    db = get_db()
+    if not db:
+        logger.error("Không kết nối được DB, thoát...")
+        import sys
+        sys.exit(1)
             
-    cycle_count = 0
     try:
-        while True:
-            cycle_count += 1
-            now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
+        
+        try:
+            db.bot_health.update_one(
+                {"_id": "validator_bot"},
+                {"$set": {
+                    "last_heartbeat_at": now,
+                    "cycle_count": 1
+                }},
+                upsert=True
+            )
+        except Exception as e:
+            logger.error(f"Lỗi ghi heartbeat: {e}")
             
-            try:
-                db.bot_health.update_one(
-                    {"_id": "validator_bot"},
-                    {"$set": {
-                        "last_heartbeat_at": now,
-                        "cycle_count": cycle_count
-                    }},
-                    upsert=True
-                )
-            except Exception as e:
-                logger.error(f"Lỗi ghi heartbeat: {e}")
-                
-            error_message = None
-            try:
-                update_site_stats(db)
-                process_priority_queue(db)
-                process_pending_vouchers(db)
-                recheck_live_vouchers(db)
-            except Exception as e:
-                error_message = str(e)
-                logger.exception("Lỗi trong chu kỳ kiểm duyệt")
-                
-            try:
-                db.bot_health.update_one(
-                    {"_id": "validator_bot"},
-                    {"$set": {
-                        "last_cycle_result": "error" if error_message else "success",
-                        "last_error_message": error_message
-                    }},
-                    upsert=True
-                )
-            except Exception as e:
-                logger.error(f"Lỗi cập nhật kết quả heartbeat: {e}")
-                
-            time.sleep(config.VALIDATOR_INTERVAL)
-    except KeyboardInterrupt:
-        logger.info("Tắt Validator Bot...")
+        error_message = None
+        try:
+            update_site_stats(db)
+            process_priority_queue(db)
+            process_pending_vouchers(db)
+            recheck_live_vouchers(db)
+        except Exception as e:
+            error_message = str(e)
+            logger.exception("Lỗi trong chu kỳ kiểm duyệt")
+            
+        try:
+            db.bot_health.update_one(
+                {"_id": "validator_bot"},
+                {"$set": {
+                    "last_cycle_result": "error" if error_message else "success",
+                    "last_error_message": error_message
+                }},
+                upsert=True
+            )
+        except Exception as e:
+            logger.error(f"Lỗi cập nhật kết quả heartbeat: {e}")
+            
+        logger.info("Hoàn thành chu kỳ kiểm duyệt.")
+        import sys
+        if error_message:
+            sys.exit(1)
+        sys.exit(0)
     except Exception as e:
         logger.exception(f"Lỗi crash bot: {e}")
         notify_admin("Validator Bot Crash", f"Bot đã dừng hoạt động do lỗi không thể phục hồi:\n{e}", priority="urgent")
+        import sys
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
