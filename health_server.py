@@ -24,7 +24,7 @@ def get_db():
 
 def check_bot_health(bot_id, threshold):
     db = get_db()
-    if not db:
+    if db is None:
         # Nếu mất kết nối DB, trả về 500 nhưng server vẫn phải sống
         return jsonify({"status": "unknown", "error": "Database connection failed"}), 500
         

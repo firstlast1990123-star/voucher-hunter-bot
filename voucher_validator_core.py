@@ -20,7 +20,7 @@ def validate_voucher_core(voucher: dict, db=None, source: str = "unknown") -> tu
     reason = "Hợp lệ"
     
     def return_result(val, res):
-        if db:
+        if db is not None:
             db.verification_logs.insert_one({
                 "voucher_code": voucher.get('code'),
                 "result": "valid" if val else "invalid",

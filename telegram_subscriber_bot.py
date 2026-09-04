@@ -42,7 +42,7 @@ def send_welcome(message):
 
 def get_merchants_keyboard():
     markup = InlineKeyboardMarkup()
-    if not db:
+    if db is None:
         return markup
     try:
         merchants = db.live_vouchers.distinct("merchant")
@@ -59,7 +59,7 @@ def get_merchants_keyboard():
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('toggle_'))
 def handle_merchant_toggle(call):
-    if not db:
+    if db is None:
         return
         
     try:
@@ -87,7 +87,7 @@ def handle_merchant_toggle(call):
 
 @bot.message_handler(commands=['mysubs'])
 def list_subs(message):
-    if not db:
+    if db is None:
         return
     try:
         chat_id = message.chat.id
@@ -105,7 +105,7 @@ def list_subs(message):
 
 @bot.message_handler(commands=['stop'])
 def stop_subs(message):
-    if not db:
+    if db is None:
         return
     try:
         chat_id = message.chat.id
@@ -120,7 +120,7 @@ def stop_subs(message):
 
 @bot.message_handler(commands=['lienket'])
 def link_account(message):
-    if not db:
+    if db is None:
         return
     try:
         chat_id = message.chat.id

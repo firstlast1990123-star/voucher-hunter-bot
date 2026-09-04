@@ -231,7 +231,7 @@ def update_site_stats(db):
 def main():
     logger.info("Khởi động Validator Bot...")
     db = get_db()
-    if not db:
+    if db is None:
         logger.error("Không kết nối được DB, thoát...")
         import sys
         sys.exit(1)

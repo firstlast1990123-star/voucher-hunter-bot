@@ -24,7 +24,7 @@ def get_db():
 
 def main():
     db = get_db()
-    if not db:
+    if db is None:
         return
         
     # Tạo index cho queue

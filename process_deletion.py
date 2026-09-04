@@ -23,7 +23,7 @@ def get_db():
 
 def process_deletions():
     db = get_db()
-    if not db:
+    if db is None:
         return
         
     logger.info("Scanning for accounts requested to be deleted...")
