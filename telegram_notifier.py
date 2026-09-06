@@ -23,9 +23,12 @@ def get_db():
         return None
 
 def main():
+    import sys
     db = get_db()
     if db is None:
         return
+        logger.error("Không thể kết nối MongoDB, thoát...")
+        sys.exit(1)
         
     # Tạo index cho queue
     db.telegram_notification_queue.create_index([("sent", 1), ("eligible_send_at", 1)])
@@ -38,6 +41,16 @@ def main():
             time.sleep(60)
     except KeyboardInterrupt:
         logger.info("Notifier stopped.")
+        # Tạo index cho queue nếu chưa có
+        db.telegram_notification_queue.create_index([("sent", 1), ("eligible_send_at", 1)])
+        
+        logger.info("Bắt đầu xử lý hàng đợi thông báo Telegram...")
+        sent_count = process_queue(db)
+        logger.info(f"Hoàn thành chu kỳ gửi thông báo Telegram. Đã gửi: {sent_count} nhóm.")
+        sys.exit(0)
+    except Exception as e:
+        logger.exception(f"Lỗi khi xử lý hàng đợi Telegram: {e}")
+        sys.exit(1)
 
 def process_queue(db):
     try:
@@ -50,6 +63,7 @@ def process_queue(db):
         }))
         if not unsent:
             return
+            return 0
             
         # Gom nhóm theo chat_id
         grouped = {}
@@ -83,8 +97,11 @@ def process_queue(db):
             # Throttle
             time.sleep(0.05)
             
+        return len(grouped)
+            
     except Exception as e:
         logger.error(f"Error processing queue: {e}")
+        return 0
 
 if __name__ == "__main__":
     main()

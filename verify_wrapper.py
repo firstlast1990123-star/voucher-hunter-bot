@@ -38,8 +38,8 @@ def main():
         print(json.dumps({"valid": is_valid, "reason": reason}))
         
     except Exception as e:
-        # Fallback to valid to prevent blocking user if our system crashes temporarily
-        print(json.dumps({"valid": True, "reason": f"System error: {e}"}))
+        # Fail-closed: nghi ngờ voucher hoặc lỗi hệ thống -> loại bỏ
+        print(json.dumps({"valid": False, "reason": f"Lỗi hệ thống: {e}"}))
         sys.exit(0)
 
 if __name__ == "__main__":

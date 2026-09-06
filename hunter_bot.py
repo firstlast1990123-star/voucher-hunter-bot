@@ -174,11 +174,22 @@ def scrape_example_coupon_site_com(db, url: str) -> int:
         pass
     except Exception as e:
         logger.error(f"Lỗi cào {url}: {e}")
+    """Hàm scraper ví dụ cho 1 trang cụ thể (chưa có cấu hình site thật)"""
+    # TODO: Chưa có site whitelist nào được cấu hình, hiện tại chỉ thu thập từ AccessTrade API
+    logger.info(f"Bỏ qua scrape {url} (chưa cấu hình parser thực tế)")
     return 0
 
 def fetch_whitelist(db) -> int:
     """Lấy voucher từ các site whitelist bằng requests + bs4"""
+    """
+    Lấy voucher từ các site whitelist bằng requests + bs4
+    TODO: Chưa có site whitelist nào được cấu hình, hiện tại chỉ thu thập từ AccessTrade API
+    """
     total_inserted = 0
+    if not config.WHITELIST_URLS:
+        logger.info("WHITELIST_URLS trống, bỏ qua cào whitelist.")
+        return 0
+
     for url in config.WHITELIST_URLS:
         if "example-coupon-site.com" in url:
             total_inserted += scrape_example_coupon_site_com(db, url)

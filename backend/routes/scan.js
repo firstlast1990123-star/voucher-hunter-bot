@@ -32,21 +32,35 @@ router.post('/', async (req, res) => {
         const slug = pathSegments[pathSegments.length - 1] || 'generic';
         
         // 3. Check cache
+        const db = getDB();
+        
+        // Xác thực phân quyền VIP từ Database (không tin field từ client)
+        let isVIP = false;
+        const userId = req.body.user_id || req.query.user_id;
+        if (userId) {
+            const user = await db.collection('users').findOne({ _id: userId });
+            if (user && user.membership === 'vip' && user.vip_expired_at) {
+                const expiryDate = new Date(user.vip_expired_at);
+                if (expiryDate > new Date()) {
+                    isVIP = true;
+                }
+            }
+        }
+
+        // 3. Check cache (phân biệt cache cho VIP vs Free)
+        const cacheKey = `${slug}_${isVIP ? 'vip' : 'free'}`;
         const now = Date.now();
-        if (scanCache[slug] && now - scanCache[slug].timestamp < CACHE_TTL) {
-            console.log("Trả kết quả scan từ cache cho", slug);
-            return res.status(200).json(scanCache[slug].data);
+        if (scanCache[cacheKey] && now - scanCache[cacheKey].timestamp < CACHE_TTL) {
+            console.log("Trả kết quả scan từ cache cho", cacheKey);
+            return res.status(200).json(scanCache[cacheKey].data);
         }
         
         // 4. Tra cứu DB live_vouchers (không scrape live để tránh rate limit)
         // Mock logic tra cứu: tìm các mã có merchant = "Shopee"
-        // Thêm tính năng Early Access cho VIP
-        const isVIP = req.body.membership === 'vip';
+        // Thêm tính năng Early Access cho VIP (15 phút)
         const VIP_EARLY_ACCESS_MINUTES = 15;
         const nowMs = Date.now();
         const cutoffTime = new Date(nowMs - VIP_EARLY_ACCESS_MINUTES * 60000).toISOString();
-        
-        const db = getDB();
         
         const query = { merchant: "Shopee", status: "live" };
         if (!isVIP) {
@@ -77,7 +91,7 @@ router.post('/', async (req, res) => {
         }
         
         // 6. Lưu cache
-        scanCache[slug] = { timestamp: now, data: responseData };
+        scanCache[cacheKey] = { timestamp: now, data: responseData };
         
         res.status(200).json(responseData);
     } catch (err) {

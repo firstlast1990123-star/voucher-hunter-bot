@@ -6,15 +6,19 @@ const { getDB } = require('../db');
 const router = express.Router();
 
 // Khởi tạo SDK PayOS
+const PAYOS_CLIENT_ID = process.env.PAYOS_CLIENT_ID || 'b0d73c0a-3a2e-49d1-a60c-4729eb5ecf60';
+const PAYOS_API_KEY = process.env.PAYOS_API_KEY || '0cb17d98-fd4b-48e3-9f10-40479f1b504e';
+const PAYOS_CHECKSUM_KEY = process.env.PAYOS_CHECKSUM_KEY || '06590c9ee8673aebf7c219a73f3caebf202e846b995dc20f22681c6a6bb70318';
+
 const payos = new PayOS(
-    process.env.PAYOS_CLIENT_ID,
-    process.env.PAYOS_API_KEY,
-    process.env.PAYOS_CHECKSUM_KEY
+    PAYOS_CLIENT_ID,
+    PAYOS_API_KEY,
+    PAYOS_CHECKSUM_KEY
 );
 
 const createOrderSchema = Joi.object({
     user_id: Joi.string().required(),
-    plan: Joi.string().valid('vip_monthly', 'vip_yearly').required()
+    plan: Joi.string().valid('vip_weekly', 'vip_monthly', 'vip_yearly').required()
 });
 
 /**
@@ -29,8 +33,9 @@ function generateOrderCode() {
  * Tính giá trị đơn hàng theo plan
  */
 function getPlanAmount(plan) {
-    if (plan === 'vip_monthly') return 10000;  // Ví dụ 10k/tháng
-    if (plan === 'vip_yearly') return 100000; // Ví dụ 100k/năm
+    if (plan === 'vip_weekly') return 10000;   // Gói Tuần 10k/7 ngày
+    if (plan === 'vip_monthly') return 17000;  // Gói Tháng 17k/tháng
+    if (plan === 'vip_yearly') return 100000; // 100k/năm
     return 0;
 }
 
@@ -150,7 +155,14 @@ router.post('/webhook', async (req, res) => {
             currentVipExpiry = now;
         }
 
-        const daysToAdd = order.plan === 'vip_yearly' ? 365 : 30;
+        let daysToAdd = 30;
+        if (order.plan === 'vip_yearly') {
+            daysToAdd = 365;
+        } else if (order.plan === 'vip_weekly') {
+            daysToAdd = 7;
+        } else if (order.plan === 'vip_monthly') {
+            daysToAdd = 30;
+        }
         currentVipExpiry.setDate(currentVipExpiry.getDate() + daysToAdd);
 
         // 6. Cập nhật trạng thái

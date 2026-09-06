@@ -1,6 +1,7 @@
 const express = require('express');
 const { execFile } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 const { getDB } = require('../db');
 
 const router = express.Router();
@@ -11,17 +12,19 @@ const router = express.Router();
 function verifyWithPython(code) {
     return new Promise((resolve, reject) => {
         const scriptPath = path.join(__dirname, '../../verify_wrapper.py');
-        execFile('python3', [scriptPath, code], (error, stdout, stderr) => {
+        const venvPython = path.join(__dirname, '../../.venv/bin/python3');
+        const pythonBin = fs.existsSync(venvPython) ? venvPython : 'python3';
+        execFile(pythonBin, [scriptPath, code], (error, stdout, stderr) => {
             if (error && error.code !== 0 && !stdout) {
                 console.error("Lỗi chạy python:", stderr);
-                return resolve({ valid: true, reason: "Bỏ qua do lỗi script" }); // Fail-open nếu script lỗi
+                return resolve({ valid: false, reason: "Lỗi hệ thống khi kiểm tra mã, vui lòng thử lại" }); // Fail-closed
             }
             try {
                 const result = JSON.parse(stdout.trim());
                 resolve(result);
             } catch (e) {
                 console.error("Lỗi parse JSON từ python:", stdout);
-                resolve({ valid: true, reason: "Bỏ qua do lỗi parse" });
+                resolve({ valid: false, reason: "Lỗi hệ thống khi xử lý kết quả kiểm tra" });
             }
         });
     });
