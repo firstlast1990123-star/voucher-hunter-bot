@@ -8,10 +8,13 @@
 // --------------------------------------------------------------------------
 const STORAGE_KEY = 'vouchermyproxmax_state';
 
+// FEATURE FLAG: Tạm thời vô hiệu hóa VIP Trial cho đến khi triển khai Authentication chuẩn ở server
+const VIP_TRIAL_ENABLED = false;
+
 // State Enum: 'TRIAL' (2h VIP), 'FREE' (Expired), 'PAID' (12h VIP)
-let currentAccountState = 'TRIAL'; 
+let currentAccountState = VIP_TRIAL_ENABLED ? 'TRIAL' : 'FREE'; 
 let timerInterval = null;
-let secondsRemaining = 7200; // Default 2 hours = 7200s
+let secondsRemaining = VIP_TRIAL_ENABLED ? 7200 : 0; // Default 2 hours = 7200s (khi enabled)
 
 // Individual unlocked vouchers (for Free state when user completes video ad)
 let adUnlockedVoucherIds = new Set();
@@ -108,13 +111,18 @@ function initAccountState() {
             const elapsedSeconds = Math.floor((now - parsed.timestamp) / 1000);
             
             if (parsed.state === 'TRIAL') {
-                const remaining = 7200 - elapsedSeconds;
-                if (remaining > 0) {
-                    currentAccountState = 'TRIAL';
-                    secondsRemaining = remaining;
-                } else {
+                if (!VIP_TRIAL_ENABLED) {
                     currentAccountState = 'FREE';
                     secondsRemaining = 0;
+                } else {
+                    const remaining = 7200 - elapsedSeconds;
+                    if (remaining > 0) {
+                        currentAccountState = 'TRIAL';
+                        secondsRemaining = remaining;
+                    } else {
+                        currentAccountState = 'FREE';
+                        secondsRemaining = 0;
+                    }
                 }
             } else if (parsed.state === 'PAID') {
                 const remaining = 43200 - elapsedSeconds; // 12 hours
@@ -133,7 +141,7 @@ function initAccountState() {
             startTrialState();
         }
     } else {
-        // First time visitor -> Start 2 Hours VIP Trial
+        // First time visitor -> Start 2 Hours VIP Trial (nếu enabled)
         startTrialState();
     }
 
@@ -142,6 +150,12 @@ function initAccountState() {
 }
 
 function startTrialState() {
+    if (!VIP_TRIAL_ENABLED) {
+        currentAccountState = 'FREE';
+        secondsRemaining = 0;
+        saveStateToStorage();
+        return;
+    }
     currentAccountState = 'TRIAL';
     secondsRemaining = 7200; // 2 hours
     saveStateToStorage();

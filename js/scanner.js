@@ -49,8 +49,6 @@ async function scanShopeeLink() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 shopee_link: url,
-                // Giả định user chưa VIP (hoặc có hàm check membership thật)
-                membership: 'free' // Thay bằng logic thật lấy từ user info nếu có
                 user_id: getCurrentUserId()
             })
         });
