@@ -1,5 +1,6 @@
 const express = require('express');
 const { getDB } = require('../db');
+const { optionalAuthenticateToken } = require('../middleware');
 
 const router = express.Router();
 
@@ -9,9 +10,9 @@ const CACHE_TTL = 30 * 60 * 1000; // 30 phút
 
 /**
  * API #4: Smart Scanner
- * POST /api/scan
+ * POST /api/scan (Hỗ trợ cả Khách vãng lai và User đã đăng nhập)
  */
-router.post('/', async (req, res) => {
+router.post('/', optionalAuthenticateToken, async (req, res) => {
     try {
         const { shopee_link } = req.body;
         
@@ -34,18 +35,9 @@ router.post('/', async (req, res) => {
         // 3. Check cache
         const db = getDB();
         
-        // Xác thực phân quyền VIP từ Database (không tin field từ client)
-        let isVIP = false;
-        const userId = req.body.user_id || req.query.user_id;
-        if (userId) {
-            const user = await db.collection('users').findOne({ _id: userId });
-            if (user && user.membership === 'vip' && user.vip_expired_at) {
-                const expiryDate = new Date(user.vip_expired_at);
-                if (expiryDate > new Date()) {
-                    isVIP = true;
-                }
-            }
-        }
+        // Phân quyền VIP qua Single Source of Truth (gồm cả VIP trả phí & VIP Trial 2 tiếng)
+        // Tuyệt đối không đọc user_id hay membership từ client body/query
+        const isVIP = req.userContext ? (req.userContext.membership === 'vip') : false;
 
         // 3. Check cache (phân biệt cache cho VIP vs Free)
         const cacheKey = `${slug}_${isVIP ? 'vip' : 'free'}`;

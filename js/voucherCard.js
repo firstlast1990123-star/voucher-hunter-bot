@@ -15,11 +15,16 @@ async function saveVoucher(code, btnElement) {
     btnElement.innerHTML = '<span class="animate-spin inline-block mr-1">⏳</span> Đang xử lý...';
 
     try {
-        const userId = getCurrentUserId();
+        if (!isLoggedIn()) {
+            showToast("Vui lòng đăng nhập để lưu mã vào kho.", "warning");
+            if (typeof openAuthModal === 'function') openAuthModal('login');
+            return;
+        }
+
         const response = await fetch(`${CONFIG.API_BASE_URL}/vouchers/save`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, voucher_code: code })
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ voucher_code: code })
         });
         
         const data = await response.json();
@@ -27,7 +32,10 @@ async function saveVoucher(code, btnElement) {
         if (response.ok) {
             showToast("Lưu trữ thành công", "success");
         } else {
-            if (response.status === 403 && data.error === 'FREE_LIMIT_REACHED') {
+            if (response.status === 401) {
+                showToast("Vui lòng đăng nhập lại để lưu mã.", "warning");
+                if (typeof openAuthModal === 'function') openAuthModal('login');
+            } else if (response.status === 403 && data.error === 'FREE_LIMIT_REACHED') {
                 showToast("Bạn đã đạt giới hạn 10 mã. Nâng cấp VIP để lưu thêm.", "error");
             } else {
                 showToast(data.message || "Lỗi khi lưu mã", "error");
@@ -233,14 +241,22 @@ async function saveDeeplinkVoucher(code, url, btnElement) {
  */
 async function reportBrokenVoucher(code) {
     try {
-        const userId = getCurrentUserId();
+        if (!isLoggedIn()) {
+            showToast("Vui lòng đăng nhập để gửi báo cáo lỗi mã.", "warning");
+            if (typeof openAuthModal === 'function') openAuthModal('login');
+            return;
+        }
+
         const res = await fetch(`${CONFIG.API_BASE_URL}/vouchers/report-broken`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ voucher_code: code, user_id: userId })
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ voucher_code: code })
         });
         if (res.ok) {
             showToast("Cảm ơn bạn đã báo cáo, hệ thống đang kiểm tra lại.", "info");
+        } else if (res.status === 401) {
+            showToast("Vui lòng đăng nhập lại để báo lỗi.", "warning");
+            if (typeof openAuthModal === 'function') openAuthModal('login');
         }
     } catch (e) {
         showToast("Lỗi mạng khi gửi báo cáo.", "error");
@@ -252,16 +268,24 @@ async function reportBrokenVoucher(code) {
  */
 async function upgradeToVIP() {
     try {
-        const userId = getCurrentUserId();
+        if (!isLoggedIn()) {
+            showToast("Vui lòng đăng nhập để nâng cấp VIP.", "warning");
+            if (typeof openAuthModal === 'function') openAuthModal('login');
+            return;
+        }
+
         const response = await fetch(`${CONFIG.API_BASE_URL}/payment/create-vip-order`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, plan: 'vip_monthly' })
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ plan: 'vip_monthly' })
         });
         const data = await response.json();
         
         if (response.ok && data.checkoutUrl) {
             window.location.href = data.checkoutUrl;
+        } else if (response.status === 401) {
+            showToast("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", "warning");
+            if (typeof openAuthModal === 'function') openAuthModal('login');
         } else {
             showToast(data.message || "Không thể tạo giao dịch", "error");
         }

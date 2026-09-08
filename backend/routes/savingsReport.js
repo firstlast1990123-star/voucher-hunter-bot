@@ -1,14 +1,14 @@
 const express = require('express');
 const { getDB } = require('../db');
-const { checkMembership } = require('../middleware');
+const { authenticateToken } = require('../middleware');
 
 const router = express.Router();
 
 /**
  * API #3: Tiết kiệm lũy kế
- * GET /api/user/savings-report?user_id=...
+ * GET /api/user/savings-report (Yêu cầu JWT Token)
  */
-router.get('/savings-report', checkMembership, async (req, res) => {
+router.get('/savings-report', authenticateToken, async (req, res) => {
     try {
         const db = getDB();
         const user = req.userContext;

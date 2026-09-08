@@ -46,10 +46,9 @@ async function scanShopeeLink() {
     try {
         const res = await fetch(`${CONFIG.API_BASE_URL}/scan`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ 
-                shopee_link: url,
-                user_id: getCurrentUserId()
+                shopee_link: url
             })
         });
         

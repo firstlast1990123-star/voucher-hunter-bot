@@ -3,6 +3,7 @@ const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { getDB } = require('../db');
+const { authenticateToken } = require('../middleware');
 
 const router = express.Router();
 
@@ -86,13 +87,14 @@ router.post('/verify-and-use', async (req, res) => {
 
 /**
  * API #2: Report broken
- * POST /api/vouchers/report-broken
+ * POST /api/vouchers/report-broken (Yêu cầu JWT Token)
  */
-router.post('/report-broken', async (req, res) => {
+router.post('/report-broken', authenticateToken, async (req, res) => {
     try {
-        const { voucher_code, user_id } = req.body;
-        if (!voucher_code || !user_id) {
-            return res.status(400).json({ error: "MISSING_DATA" });
+        const { voucher_code } = req.body;
+        const user_id = req.user_id;
+        if (!voucher_code) {
+            return res.status(400).json({ error: "MISSING_DATA", message: "Vui lòng cung cấp voucher_code" });
         }
 
         const db = getDB();

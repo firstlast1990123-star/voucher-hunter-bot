@@ -1,5 +1,5 @@
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import config
 
 def parse_iso_datetime(dt_str: str):
@@ -75,3 +75,27 @@ def validate_voucher_core(voucher: dict, db=None, source: str = "unknown") -> tu
         return return_result(False, "Điều kiện đơn tối thiểu không hợp lệ (null hoặc âm)")
 
     return return_result(True, "Hợp lệ")
+
+def get_effective_membership(user: dict) -> str:
+    """
+    Xác định quyền lợi thành viên hiệu lực (Single Source of Truth phía Python)
+    """
+    if not user:
+        return "free"
+    now = datetime.now(timezone.utc)
+    
+    # 1. VIP thật còn hạn
+    if user.get("membership") == "vip" and user.get("vip_expired_at"):
+        vip_expired_dt = parse_iso_datetime(user.get("vip_expired_at"))
+        if vip_expired_dt and vip_expired_dt > now:
+            return "vip"
+            
+    # 2. VIP Trial còn hạn (trong 2 tiếng)
+    if not user.get("trial_used") and user.get("trial_started_at"):
+        trial_started_dt = parse_iso_datetime(user.get("trial_started_at"))
+        if trial_started_dt:
+            trial_end_dt = trial_started_dt + timedelta(hours=2)
+            if now < trial_end_dt:
+                return "vip"
+                
+    return "free"

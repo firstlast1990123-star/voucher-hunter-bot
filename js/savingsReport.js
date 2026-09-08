@@ -8,39 +8,27 @@ async function loadSavingsReport() {
     if (!amountEl) return;
 
     // TODO: cần backend cung cấp API tổng hợp chính xác, hiện tại tính tạm ở frontend chỉ để demo UI
-    // Mock fetch my storage and calculate total
     try {
-        const userId = getCurrentUserId();
-        const response = await fetch(`${CONFIG.API_BASE_URL}/vouchers/my-storage?user_id=${userId}`);
+        if (!isLoggedIn()) {
+            amountEl.textContent = '0đ';
+            return;
+        }
+
+        const response = await fetch(`${CONFIG.API_BASE_URL}/user/savings-report`, {
+            headers: getAuthHeaders()
+        });
         const data = await response.json();
 
         let totalSavings = 0;
-        
         if (response.ok && data.success && data.data) {
-            data.data.forEach(v => {
-                // Parse string like "50K" or "10%" or "50.000đ" to number naively for demo
-                const valStr = String(v.discount_value || '0');
-                if (valStr.includes('%')) {
-                    // Ignore % for total naive sum
-                } else {
-                    const num = parseInt(valStr.replace(/\D/g, ''));
-                    if (!isNaN(num)) {
-                        // Nếu là K
-                        if (valStr.toLowerCase().includes('k') && num < 1000) {
-                            totalSavings += num * 1000;
-                        } else {
-                            totalSavings += num;
-                        }
-                    }
-                }
-            });
+            totalSavings = data.data.total_saved_display || 0;
         }
 
         // Animation chạy số
         animateValue(amountEl, 0, totalSavings, 1500);
 
     } catch (error) {
-        console.error("Lỗi tính tiết kiệm:", error);
+        console.error("Lỗi lấy báo cáo tiết kiệm:", error);
         amountEl.textContent = '0đ';
     }
 }

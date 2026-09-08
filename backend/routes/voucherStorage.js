@@ -1,21 +1,20 @@
 const express = require('express');
 const Joi = require('joi');
 const { getDB } = require('../db');
-const { checkMembership } = require('../middleware');
+const { authenticateToken } = require('../middleware');
 
 const router = express.Router();
 
-// Validate schema cho API Save
+// Validate schema cho API Save (user_id được lấy bảo mật từ JWT Token)
 const saveVoucherSchema = Joi.object({
-    user_id: Joi.string().required(),
     voucher_code: Joi.string().required()
 });
 
 /**
  * API #1: Lưu mã vào Kho Voucher Của Tôi
- * POST /api/vouchers/save
+ * POST /api/vouchers/save (Yêu cầu JWT Token)
  */
-router.post('/save', checkMembership, async (req, res) => {
+router.post('/save', authenticateToken, async (req, res) => {
     try {
         const { error, value } = saveVoucherSchema.validate(req.body);
         if (error) {
@@ -75,9 +74,9 @@ router.post('/save', checkMembership, async (req, res) => {
 
 /**
  * API #2: Lấy danh sách Kho Voucher Của Tôi
- * GET /api/vouchers/my-storage?user_id=...
+ * GET /api/vouchers/my-storage (Yêu cầu JWT Token)
  */
-router.get('/my-storage', checkMembership, async (req, res) => {
+router.get('/my-storage', authenticateToken, async (req, res) => {
     try {
         const db = getDB();
         const user = req.userContext;

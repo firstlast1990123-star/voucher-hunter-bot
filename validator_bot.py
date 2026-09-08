@@ -75,12 +75,13 @@ def process_pending_vouchers(db):
                             user_id = sub.get("user_id")
                             if user_id:
                                 user = db.users.find_one({"_id": user_id})
-                                if user and user.get("membership") == "vip":
-                                    vip_expired = user.get("vip_expired_at")
-                                    if vip_expired:
-                                        vip_expired_dt = voucher_validator_core.parse_iso_datetime(vip_expired)
-                                        if vip_expired_dt and vip_expired_dt > datetime.now(timezone.utc):
-                                            is_vip = True
+                                if user:
+                                    is_vip = (voucher_validator_core.get_effective_membership(user) == "vip")
+                                    # Optional cleanup: đánh dấu trial_used nếu đã hết hạn trial
+                                    if user.get("trial_started_at") and not user.get("trial_used"):
+                                        trial_started_dt = voucher_validator_core.parse_iso_datetime(user.get("trial_started_at"))
+                                        if trial_started_dt and (datetime.now(timezone.utc) >= trial_started_dt + timedelta(hours=2)):
+                                            db.users.update_one({"_id": user_id}, {"$set": {"trial_used": True}})
                                             
                             priority = "instant" if is_vip else "delayed"
                             eligible_send_at = now_str if is_vip else delayed_time

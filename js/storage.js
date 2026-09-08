@@ -7,11 +7,25 @@ async function loadMyStorage() {
     const container = document.getElementById('storage-grid');
     if (!container) return;
 
+    if (!isLoggedIn()) {
+        container.innerHTML = `
+            <div class="col-span-full text-center py-10 text-gray-600 bg-orange-50 rounded-xl border border-orange-200 p-6">
+                <div class="text-4xl mb-2">🔐</div>
+                <p class="font-bold text-lg mb-2">Vui lòng đăng nhập để xem Kho Voucher của bạn</p>
+                <button onclick="openAuthModal('login')" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-6 rounded-lg transition shadow-sm">
+                    Đăng nhập ngay
+                </button>
+            </div>
+        `;
+        return;
+    }
+
     container.innerHTML = '<div class="col-span-full text-center py-10"><span class="animate-spin text-3xl inline-block">⏳</span><p class="mt-2 text-gray-500">Đang tải kho voucher...</p></div>';
 
     try {
-        const userId = getCurrentUserId();
-        const response = await fetch(`${CONFIG.API_BASE_URL}/vouchers/my-storage?user_id=${userId}`);
+        const response = await fetch(`${CONFIG.API_BASE_URL}/vouchers/my-storage`, {
+            headers: getAuthHeaders()
+        });
         const data = await response.json();
 
         if (response.ok && data.success) {
@@ -29,6 +43,9 @@ async function loadMyStorage() {
                 html += renderVoucherCard(v);
             });
             container.innerHTML = html;
+        } else if (response.status === 401) {
+            removeToken();
+            loadMyStorage();
         } else {
             container.innerHTML = `<div class="col-span-full text-center py-10 text-red-500">Lỗi: ${data.message || 'Không thể tải kho'}</div>`;
         }
@@ -40,12 +57,16 @@ async function loadMyStorage() {
 
 // Gọi API sinh mã liên kết Telegram
 async function generateTelegramLink() {
+    if (!isLoggedIn()) {
+        showToast("Vui lòng đăng nhập để liên kết Telegram", "warning");
+        openAuthModal('login');
+        return;
+    }
+
     try {
-        const userId = getCurrentUserId();
         const res = await fetch(`${CONFIG.API_BASE_URL}/user/generate-telegram-link-code`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId })
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' })
         });
         const data = await res.json();
         
@@ -69,11 +90,19 @@ async function generateTelegramLink() {
 
 // Data Subject Rights
 async function exportMyData() {
+    if (!isLoggedIn()) {
+        showToast("Vui lòng đăng nhập để tải dữ liệu cá nhân", "warning");
+        openAuthModal('login');
+        return;
+    }
+
     try {
-        const userId = getCurrentUserId();
-        const res = await fetch(`${CONFIG.API_BASE_URL}/user/export-my-data?user_id=${userId}`);
+        const res = await fetch(`${CONFIG.API_BASE_URL}/user/export-my-data`, {
+            headers: getAuthHeaders()
+        });
         const data = await res.json();
         if (res.ok && data.success) {
+            const userId = (getCurrentUser() && getCurrentUser().id) || 'me';
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data.data, null, 2));
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
@@ -91,6 +120,12 @@ async function exportMyData() {
 }
 
 async function requestAccountDeletion() {
+    if (!isLoggedIn()) {
+        showToast("Vui lòng đăng nhập để yêu cầu xóa tài khoản", "warning");
+        openAuthModal('login');
+        return;
+    }
+
     if (!confirm("Bạn có chắc chắn muốn yêu cầu xóa tài khoản? Quá trình này sẽ không thể hoàn tác sau 7 ngày.")) {
         return;
     }
@@ -100,15 +135,15 @@ async function requestAccountDeletion() {
     }
     
     try {
-        const userId = getCurrentUserId();
         const res = await fetch(`${CONFIG.API_BASE_URL}/user/request-deletion`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId })
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' })
         });
         const data = await res.json();
         if (res.ok && data.success) {
             showToast(data.message, 'success');
+            removeToken();
+            updateAuthUI();
         } else {
             showToast(data.error || 'Lỗi gửi yêu cầu xóa', 'error');
         }

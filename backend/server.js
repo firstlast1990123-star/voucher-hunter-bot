@@ -5,6 +5,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { connectDB } = require('./db');
 
 // Import routes
+const authRoutes = require('./routes/auth');
 const voucherStorageRoutes = require('./routes/voucherStorage');
 const verifyAndUseRoutes = require('./routes/verifyAndUse');
 const paymentRoutes = require('./routes/payment');
@@ -32,6 +33,7 @@ app.get('/health', (req, res) => {
 });
 
 // Register API routes
+app.use('/api/auth', authRoutes);
 app.use('/api/vouchers', voucherStorageRoutes);
 app.use('/api/vouchers', verifyAndUseRoutes);
 app.use('/api/payment', paymentRoutes);
@@ -54,14 +56,17 @@ app.use((err, req, res, next) => {
 // Start server after connecting to MongoDB
 async function startServer() {
     try {
-        console.log('Connecting to MongoDB Atlas...');
-        await connectDB();
+        const db = await connectDB();
         console.log('MongoDB connection verified.');
+        await db.collection('users').createIndex({ email: 1 }, { unique: true }).catch(() => {});
 
         const server = app.listen(PORT, () => {
             console.log(`🚀 Server is running on port ${PORT}`);
             console.log('Registered routes:');
             console.log('  GET  /health');
+            console.log('  POST /api/auth/register');
+            console.log('  POST /api/auth/login');
+            console.log('  GET  /api/auth/me');
             console.log('  POST /api/vouchers/save');
             console.log('  GET  /api/vouchers/my-storage');
             console.log('  POST /api/vouchers/verify-and-use');

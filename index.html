@@ -31,8 +31,18 @@
                         ✅ 94% mã dùng được
                     </div>
                 </div>
-                <div id="user-profile-badge" class="flex items-center gap-2 bg-orange-50 hover:bg-orange-100 cursor-pointer text-orange-600 px-3 py-1 rounded-full font-semibold text-sm transition">
-                    👤 User Demo
+                <div id="auth-actions" class="flex items-center gap-2">
+                    <div id="user-profile-badge" class="hidden flex items-center gap-2 bg-orange-50 text-orange-600 px-3 py-1 rounded-full font-semibold text-sm">
+                        <span>👤</span>
+                        <span id="user-email-display" class="truncate max-w-[120px] sm:max-w-[180px]">User</span>
+                        <span id="user-vip-tag" class="px-2 py-0.5 rounded text-xs bg-orange-500 text-white font-bold">VIP</span>
+                    </div>
+                    <button id="btn-open-auth" onclick="openAuthModal('login')" class="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs sm:text-sm px-4 py-1.5 rounded-full shadow-sm transition">
+                        🔑 Đăng nhập / Đăng ký
+                    </button>
+                    <button id="btn-logout" onclick="logoutUser()" class="hidden text-xs text-gray-400 hover:text-red-500 font-medium px-2 py-1 transition" title="Đăng xuất">
+                        Đăng xuất
+                    </button>
                 </div>
             </div>
             
@@ -147,38 +157,75 @@
         </div>
     </footer>
 
-    <!-- Register Modal (Mock) -->
-    <div id="register-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl m-4">
-            <h3 class="text-2xl font-bold text-gray-900 mb-4">Đăng ký tài khoản</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Email</label>
-                    <input type="email" class="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Mật khẩu</label>
-                    <input type="password" class="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
-                </div>
-                
-                <div class="mt-4 space-y-3">
-                    <label class="flex items-start gap-2 cursor-pointer">
-                        <input type="checkbox" id="consent-tos" class="mt-1 rounded text-orange-500 focus:ring-orange-500">
-                        <span class="text-sm text-gray-600">Tôi đã đọc và đồng ý với <a href="terms-of-service.html" target="_blank" class="text-orange-500 hover:underline">Điều khoản sử dụng</a> và <a href="privacy-policy.html" target="_blank" class="text-orange-500 hover:underline">Chính sách bảo mật</a> <span class="text-red-500">*</span></span>
-                    </label>
-                    <label class="flex items-start gap-2 cursor-pointer">
-                        <input type="checkbox" id="consent-marketing" class="mt-1 rounded text-orange-500 focus:ring-orange-500">
-                        <span class="text-sm text-gray-600">Đồng ý nhận thông báo ưu đãi và mã giảm giá mới qua Email / Telegram</span>
-                    </label>
-                </div>
-                
-                <button onclick="submitRegister()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded shadow transition mt-2">
-                    Đăng ký
+    <!-- Auth Modal (Đăng nhập & Đăng ký) -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl m-4 relative animate-fade-in">
+            <!-- Nút đóng -->
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none">&times;</button>
+            
+            <!-- Tab Switcher -->
+            <div class="flex border-b border-gray-200 mb-6">
+                <button id="auth-tab-login" onclick="switchAuthTab('login')" class="flex-1 pb-3 text-center font-bold text-sm border-b-2 border-orange-500 text-orange-500 transition">
+                    Đăng nhập
                 </button>
-                <button onclick="document.getElementById('register-modal').classList.add('hidden')" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded shadow transition mt-2">
-                    Đóng
+                <button id="auth-tab-register" onclick="switchAuthTab('register')" class="flex-1 pb-3 text-center font-bold text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition">
+                    Đăng ký (Nhận 2h VIP)
                 </button>
             </div>
+
+            <!-- Form Đăng nhập -->
+            <form id="form-login" onsubmit="event.preventDefault(); submitLogin();" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+                    <input type="email" id="login-email" required placeholder="name@example.com" 
+                           class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Mật khẩu</label>
+                    <input type="password" id="login-password" required placeholder="Nhập mật khẩu" 
+                           class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div id="login-error" class="hidden text-red-500 text-xs font-medium"></div>
+                <button type="submit" id="btn-submit-login" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-4 rounded-lg shadow transition">
+                    Đăng nhập
+                </button>
+                <div class="text-center text-xs text-gray-500 mt-2">
+                    Chưa có tài khoản? <a href="javascript:void(0)" onclick="switchAuthTab('register')" class="text-orange-500 font-bold hover:underline">Đăng ký nhận 2h VIP miễn phí</a>
+                </div>
+            </form>
+
+            <!-- Form Đăng ký -->
+            <form id="form-register" onsubmit="event.preventDefault(); submitRegister();" class="hidden space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+                    <input type="email" id="reg-email" required placeholder="name@example.com" 
+                           class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Mật khẩu</label>
+                    <input type="password" id="reg-password" required minlength="8" placeholder="Tối thiểu 8 ký tự" 
+                           class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                </div>
+                
+                <div class="space-y-2 pt-1 text-xs">
+                    <label class="flex items-start gap-2 cursor-pointer">
+                        <input type="checkbox" id="consent-tos" required class="mt-0.5 rounded text-orange-500 focus:ring-orange-500">
+                        <span class="text-gray-600">Tôi đã đọc và đồng ý với <a href="terms-of-service.html" target="_blank" class="text-orange-500 hover:underline">Điều khoản sử dụng</a> và <a href="privacy-policy.html" target="_blank" class="text-orange-500 hover:underline">Chính sách bảo mật</a> (Nghị định 13) <span class="text-red-500">*</span></span>
+                    </label>
+                    <label class="flex items-start gap-2 cursor-pointer">
+                        <input type="checkbox" id="consent-marketing" class="mt-0.5 rounded text-orange-500 focus:ring-orange-500">
+                        <span class="text-gray-600">Đồng ý nhận thông báo ưu đãi và mã giảm giá mới</span>
+                    </label>
+                </div>
+                
+                <div id="reg-error" class="hidden text-red-500 text-xs font-medium"></div>
+                <button type="submit" id="btn-submit-reg" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-4 rounded-lg shadow transition">
+                    Đăng ký & Kích hoạt 2h VIP
+                </button>
+                <div class="text-center text-xs text-gray-500 mt-2">
+                    Đã có tài khoản? <a href="javascript:void(0)" onclick="switchAuthTab('login')" class="text-orange-500 font-bold hover:underline">Đăng nhập ngay</a>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -191,59 +238,221 @@
     <script src="js/scanner.js"></script>
 
     <script>
-        // Fetch stats
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Show register modal logic demo
-            const user = document.getElementById('user-profile-badge');
-            if (user) {
-                user.addEventListener('click', () => {
-                    document.getElementById('register-modal').classList.remove('hidden');
+        // Modal & Tab handlers
+        function openAuthModal(tab = 'login') {
+            const modal = document.getElementById('auth-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                switchAuthTab(tab);
+            }
+        }
+
+        function closeAuthModal() {
+            const modal = document.getElementById('auth-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        function switchAuthTab(tab) {
+            const tabLogin = document.getElementById('auth-tab-login');
+            const tabReg = document.getElementById('auth-tab-register');
+            const formLogin = document.getElementById('form-login');
+            const formReg = document.getElementById('form-register');
+            const loginErr = document.getElementById('login-error');
+            const regErr = document.getElementById('reg-error');
+
+            if (loginErr) loginErr.classList.add('hidden');
+            if (regErr) regErr.classList.add('hidden');
+
+            if (tab === 'login') {
+                tabLogin.className = 'flex-1 pb-3 text-center font-bold text-sm border-b-2 border-orange-500 text-orange-500 transition';
+                tabReg.className = 'flex-1 pb-3 text-center font-bold text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition';
+                formLogin.classList.remove('hidden');
+                formReg.classList.add('hidden');
+            } else {
+                tabReg.className = 'flex-1 pb-3 text-center font-bold text-sm border-b-2 border-orange-500 text-orange-500 transition';
+                tabLogin.className = 'flex-1 pb-3 text-center font-bold text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition';
+                formReg.classList.remove('hidden');
+                formLogin.classList.add('hidden');
+            }
+        }
+
+        function updateAuthUI() {
+            const btnOpenAuth = document.getElementById('btn-open-auth');
+            const profileBadge = document.getElementById('user-profile-badge');
+            const btnLogout = document.getElementById('btn-logout');
+            const emailDisplay = document.getElementById('user-email-display');
+            const vipTag = document.getElementById('user-vip-tag');
+
+            const user = getCurrentUser();
+
+            if (isLoggedIn() && user) {
+                if (btnOpenAuth) btnOpenAuth.classList.add('hidden');
+                if (profileBadge) profileBadge.classList.remove('hidden');
+                if (btnLogout) btnLogout.classList.remove('hidden');
+                if (emailDisplay) emailDisplay.textContent = user.email;
+
+                if (vipTag) {
+                    if (user.membership === 'vip') {
+                        if (user.is_trial) {
+                            const mins = user.trial_remaining_seconds ? Math.ceil(user.trial_remaining_seconds / 60) : 120;
+                            vipTag.textContent = `⚡ Trial (${mins}p)`;
+                            vipTag.className = 'px-2 py-0.5 rounded text-xs bg-amber-500 text-white font-bold';
+                        } else {
+                            vipTag.textContent = '👑 VIP';
+                            vipTag.className = 'px-2 py-0.5 rounded text-xs bg-orange-500 text-white font-bold';
+                        }
+                    } else {
+                        vipTag.textContent = 'Free';
+                        vipTag.className = 'px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-700 font-bold';
+                    }
+                }
+            } else {
+                if (btnOpenAuth) btnOpenAuth.classList.remove('hidden');
+                if (profileBadge) profileBadge.classList.add('hidden');
+                if (btnLogout) btnLogout.classList.add('hidden');
+            }
+        }
+
+        async function submitLogin() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errEl = document.getElementById('login-error');
+            const btn = document.getElementById('btn-submit-login');
+
+            errEl.classList.add('hidden');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Đang đăng nhập...';
+
+            try {
+                const res = await fetch(`${CONFIG.API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
                 });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    setToken(data.token);
+                    setCurrentUser(data.user);
+                    showToast('Đăng nhập thành công!', 'success');
+                    closeAuthModal();
+                    updateAuthUI();
+                    loadMyStorage();
+                    loadSavingsReport();
+                } else {
+                    errEl.textContent = data.message || 'Đăng nhập thất bại.';
+                    errEl.classList.remove('hidden');
+                }
+            } catch (e) {
+                errEl.textContent = 'Lỗi kết nối mạng, vui lòng thử lại.';
+                errEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Đăng nhập';
+            }
+        }
+
+        async function submitRegister() {
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const consentTos = document.getElementById('consent-tos').checked;
+            const consentMarketing = document.getElementById('consent-marketing').checked;
+            const errEl = document.getElementById('reg-error');
+            const btn = document.getElementById('btn-submit-reg');
+
+            errEl.classList.add('hidden');
+
+            if (!consentTos) {
+                errEl.textContent = 'Vui lòng đồng ý với Điều khoản sử dụng và Chính sách bảo mật.';
+                errEl.classList.remove('hidden');
+                return;
             }
 
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Đang tạo tài khoản...';
+
+            try {
+                const res = await fetch(`${CONFIG.API_BASE_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        consent_accepted: consentTos,
+                        allow_marketing: consentMarketing
+                    })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    setToken(data.token);
+                    setCurrentUser(data.user);
+                    showToast('🎉 Đăng ký thành công! Đã kích hoạt 2 tiếng VIP Trial!', 'success');
+                    closeAuthModal();
+                    updateAuthUI();
+                    loadMyStorage();
+                    loadSavingsReport();
+                } else {
+                    errEl.textContent = data.message || 'Đăng ký thất bại.';
+                    errEl.classList.remove('hidden');
+                }
+            } catch (e) {
+                errEl.textContent = 'Lỗi kết nối mạng, vui lòng thử lại.';
+                errEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Đăng ký & Kích hoạt 2h VIP';
+            }
+        }
+
+        function logoutUser() {
+            removeToken();
+            showToast('Đã đăng xuất tài khoản.', 'info');
+            updateAuthUI();
+            loadMyStorage();
+            loadSavingsReport();
+        }
+
+        // Initialization
+        document.addEventListener('DOMContentLoaded', async () => {
+            updateAuthUI();
+
+            // Nếu đã login, làm mới thông tin từ /api/auth/me
+            if (isLoggedIn()) {
+                try {
+                    const res = await fetch(`${CONFIG.API_BASE_URL}/auth/me`, {
+                        headers: getAuthHeaders()
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.success && data.user) {
+                            setCurrentUser(data.user);
+                            updateAuthUI();
+                        }
+                    } else if (res.status === 401) {
+                        removeToken();
+                        updateAuthUI();
+                    }
+                } catch (e) {}
+            }
+
+            // Tải số liệu thống kê
             try {
                 const res = await fetch(`${CONFIG.API_BASE_URL}/stats/success-rate`);
                 const data = await res.json();
                 if (data.success && !data.low_sample) {
                     const badge = document.getElementById('stats-badge');
-                    badge.innerHTML = `✅ ${data.success_rate}% mã dùng được (${data.period_days} ngày qua)`;
-                    badge.classList.remove('hidden');
+                    if (badge) {
+                        badge.innerHTML = `✅ ${data.success_rate}% mã dùng được (${data.period_days} ngày qua)`;
+                        badge.classList.remove('hidden');
+                    }
                 }
             } catch (e) {}
         });
-
-        async function submitRegister() {
-            const tosAccepted = document.getElementById('consent-tos').checked;
-            const marketingAccepted = document.getElementById('consent-marketing').checked;
-            
-            if (!tosAccepted) {
-                showToast('Vui lòng đồng ý với Điều khoản sử dụng và Chính sách bảo mật', 'error');
-                return;
-            }
-
-            try {
-                const userId = getCurrentUserId(); // Demo ID
-                const res = await fetch(`${CONFIG.API_BASE_URL}/user/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        user_id: userId,
-                        consent_accepted: tosAccepted,
-                        allow_marketing: marketingAccepted
-                    })
-                });
-                
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    showToast('Đăng ký thành công!', 'success');
-                    document.getElementById('register-modal').classList.add('hidden');
-                } else {
-                    showToast(data.error || 'Lỗi đăng ký', 'error');
-                }
-            } catch (e) {
-                showToast('Lỗi mạng', 'error');
-            }
-        }
     </script>
 </body>
 </html>

@@ -1,16 +1,18 @@
 const express = require('express');
 const { getDB } = require('../db');
+const { authenticateToken } = require('../middleware');
 const crypto = require('crypto');
 
 const router = express.Router();
 
-router.post('/generate-telegram-link-code', async (req, res) => {
+/**
+ * POST /api/user/generate-telegram-link-code
+ * Tạo mã 6 số để liên kết tài khoản web với Telegram Bot
+ * Yêu cầu JWT Token
+ */
+router.post('/generate-telegram-link-code', authenticateToken, async (req, res) => {
     try {
-        const { user_id } = req.body;
-        if (!user_id) {
-            return res.status(400).json({ success: false, error: 'Thiếu user_id' });
-        }
-
+        const user_id = req.user_id;
         const db = getDB();
         
         // Sinh mã 6 số ngẫu nhiên
@@ -33,41 +35,30 @@ router.post('/generate-telegram-link-code', async (req, res) => {
     }
 });
 
+/**
+ * Legacy POST /api/user/register
+ * Chuyển hướng sang /api/auth/register
+ */
 router.post('/register', async (req, res) => {
-    try {
-        const { user_id, consent_accepted, allow_marketing } = req.body;
-        if (!consent_accepted) {
-            return res.status(400).json({ success: false, error: "Bạn phải đồng ý với Điều khoản sử dụng và Chính sách bảo mật." });
-        }
-        
-        const db = getDB();
-        await db.collection('users').updateOne(
-            { _id: user_id },
-            { 
-                $set: { 
-                    consent_accepted: true,
-                    consent_accepted_at: new Date().toISOString(),
-                    consent_version: 'v1.0',
-                    allow_marketing: !!allow_marketing
-                } 
-            },
-            { upsert: true }
-        );
-        res.status(200).json({ success: true });
-    } catch (error) {
-        res.status(500).json({ success: false, error: "Lỗi server" });
-    }
+    res.status(400).json({
+        success: false,
+        error: "DEPRECATED_ENDPOINT",
+        message: "Endpoint này đã lỗi thời. Vui lòng sử dụng /api/auth/register để đăng ký tài khoản với mật khẩu và email."
+    });
 });
 
-router.get('/export-my-data', async (req, res) => {
+/**
+ * GET /api/user/export-my-data
+ * Xuất dữ liệu cá nhân theo Nghị định 13 (Quyền truy cập dữ liệu)
+ * Yêu cầu JWT Token
+ */
+router.get('/export-my-data', authenticateToken, async (req, res) => {
     try {
-        const user_id = req.query.user_id;
-        if (!user_id) return res.status(400).json({ success: false, error: "Thiếu user_id" });
-        
+        const user_id = req.user_id;
         const db = getDB();
         const user = await db.collection('users').findOne({ _id: user_id }) || {};
         
-        // Hide internal data
+        // Ẩn thông tin nhạy cảm password_hash
         delete user.password_hash;
         
         const saved_vouchers = await db.collection('saved_vouchers').find({ user_id }).toArray();
@@ -83,15 +74,19 @@ router.get('/export-my-data', async (req, res) => {
         
         res.status(200).json({ success: true, data: exportData });
     } catch (error) {
+        console.error("Lỗi export-my-data:", error);
         res.status(500).json({ success: false, error: "Lỗi server" });
     }
 });
 
-router.post('/request-deletion', async (req, res) => {
+/**
+ * POST /api/user/request-deletion
+ * Yêu cầu xóa dữ liệu cá nhân (Quyền được xóa dữ liệu)
+ * Yêu cầu JWT Token
+ */
+router.post('/request-deletion', authenticateToken, async (req, res) => {
     try {
-        const { user_id } = req.body;
-        if (!user_id) return res.status(400).json({ success: false, error: "Thiếu user_id" });
-        
+        const user_id = req.user_id;
         const db = getDB();
         await db.collection('users').updateOne(
             { _id: user_id },
@@ -103,8 +98,12 @@ router.post('/request-deletion', async (req, res) => {
             }
         );
         
-        res.status(200).json({ success: true, message: "Yêu cầu xóa tài khoản đã được ghi nhận. Hệ thống sẽ tự động xử lý sau 7 ngày." });
+        res.status(200).json({
+            success: true,
+            message: "Yêu cầu xóa tài khoản đã được ghi nhận. Hệ thống sẽ tự động xử lý sau 7 ngày."
+        });
     } catch (error) {
+        console.error("Lỗi request-deletion:", error);
         res.status(500).json({ success: false, error: "Lỗi server" });
     }
 });

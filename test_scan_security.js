@@ -2,6 +2,7 @@ const assert = require('assert');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { MongoClient } = require('mongodb');
+const jwt = require('jsonwebtoken');
 
 async function runTest() {
     console.log("=== BẮT ĐẦU TEST BẢO MẬT API /api/scan (KHÔNG TIN CLIENT MEMBERSHIP) ===");
@@ -79,9 +80,28 @@ async function runTest() {
         assert.strictEqual(hasEarlyVoucher2, false, "Ẩn danh KHÔNG ĐƯỢC PHÉP thấy mã mới!");
         console.log("✅ TEST 2 PASSED: Ẩn danh không thể bypass kiểm tra VIP.");
 
-        // TEST 3: User VIP thật
-        console.log("3. Test User VIP thật gửi user_id...");
+        // TEST 3: User VIP thật với JWT Bearer token
+        console.log("3. Test User VIP thật gửi Bearer token...");
+        const vipToken = jwt.sign({ user_id: testVipId }, process.env.JWT_SECRET);
         const res3 = await fetch('http://localhost:3000/api/scan', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${vipToken}`
+            },
+            body: JSON.stringify({
+                shopee_link: testShopeeLink
+            })
+        });
+        const data3 = await res3.json();
+        const hasEarlyVoucher3 = (data3.vouchers || []).some(v => v.code === testCode);
+        assert.strictEqual(hasEarlyVoucher3, true, "User VIP thật PHẢI thấy mã mới ngay lập tức!");
+        assert.strictEqual(data3.new_vouchers_hidden_count, 0, "User VIP không bị ẩn mã nào");
+        console.log("✅ TEST 3 PASSED: User VIP thật với Bearer token được hiển thị đầy đủ mã Early Access.");
+
+        // TEST 4: Gửi user_id trong body mà không có token -> Bị bỏ qua hoàn toàn
+        console.log("4. Test User VIP gửi user_id trong body không có Bearer token...");
+        const res4 = await fetch('http://localhost:3000/api/scan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -89,11 +109,10 @@ async function runTest() {
                 user_id: testVipId
             })
         });
-        const data3 = await res3.json();
-        const hasEarlyVoucher3 = (data3.vouchers || []).some(v => v.code === testCode);
-        assert.strictEqual(hasEarlyVoucher3, true, "User VIP thật PHẢI thấy mã mới ngay lập tức!");
-        assert.strictEqual(data3.new_vouchers_hidden_count, 0, "User VIP không bị ẩn mã nào");
-        console.log("✅ TEST 3 PASSED: User VIP thật được hiển thị đầy đủ mã Early Access.");
+        const data4 = await res4.json();
+        const hasEarlyVoucher4 = (data4.vouchers || []).some(v => v.code === testCode);
+        assert.strictEqual(hasEarlyVoucher4, false, "Gửi user_id trong body KHÔNG ĐƯỢC tin, phải coi là Free!");
+        console.log("✅ TEST 4 PASSED: Body user_id hoàn toàn bị bỏ qua, hệ thống không tin dữ liệu client.");
 
         console.log("\n🎉 TẤT CẢ TEST BẢO MẬT SCAN API ĐÃ HOÀN TOÀN THÀNH CÔNG!");
 

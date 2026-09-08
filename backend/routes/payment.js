@@ -2,6 +2,7 @@ const express = require('express');
 const Joi = require('joi');
 const PayOS = require('@payos/node');
 const { getDB } = require('../db');
+const { authenticateToken } = require('../middleware');
 
 const router = express.Router();
 
@@ -17,7 +18,6 @@ const payos = new PayOS(
 );
 
 const createOrderSchema = Joi.object({
-    user_id: Joi.string().required(),
     plan: Joi.string().valid('vip_weekly', 'vip_monthly', 'vip_yearly').required()
 });
 
@@ -41,16 +41,17 @@ function getPlanAmount(plan) {
 
 /**
  * API #3: Tạo đơn thanh toán PayOS
- * POST /api/payment/create-vip-order
+ * POST /api/payment/create-vip-order (Yêu cầu JWT Token)
  */
-router.post('/create-vip-order', async (req, res) => {
+router.post('/create-vip-order', authenticateToken, async (req, res) => {
     try {
         const { error, value } = createOrderSchema.validate(req.body);
         if (error) {
             return res.status(400).json({ error: "VALIDATION_ERROR", message: error.details[0].message });
         }
 
-        const { user_id, plan } = value;
+        const { plan } = value;
+        const user_id = req.user_id;
         const db = getDB();
         
         // Sinh thông tin đơn hàng
