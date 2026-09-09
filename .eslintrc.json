@@ -1,0 +1,46 @@
+{
+  "env": {
+    "node": true,
+    "commonjs": true,
+    "es2021": true,
+    "browser": true
+  },
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "ecmaVersion": 12
+  },
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-console": "off",
+    "no-empty": ["error", { "allowEmptyCatch": true }]
+  },
+  "overrides": [
+    {
+      "files": ["js/**/*.js"],
+      "globals": {
+        "CONFIG": "readonly",
+        "getToken": "readonly",
+        "setToken": "readonly",
+        "removeToken": "readonly",
+        "getCurrentUser": "readonly",
+        "setCurrentUser": "readonly",
+        "isLoggedIn": "readonly",
+        "getAuthHeaders": "readonly",
+        "getCurrentUserId": "readonly",
+        "showToast": "readonly",
+        "renderVoucherCard": "readonly",
+        "openAuthModal": "readonly",
+        "closeAuthModal": "readonly",
+        "openVipModal": "readonly",
+        "closeVipModal": "readonly",
+        "updateAuthUI": "readonly",
+        "loadMyStorage": "readonly",
+        "loadSavingsReport": "readonly",
+        "scanShopeeLink": "readonly"
+      },
+      "rules": {
+        "no-unused-vars": "off"
+      }
+    }
+  ]
+}

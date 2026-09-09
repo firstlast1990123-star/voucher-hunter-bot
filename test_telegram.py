@@ -5,7 +5,7 @@ import logging
 # Load cấu hình từ .env
 load_dotenv()
 
-from notify_admin import notify_admin
+from notify_admin import notify_admin  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 

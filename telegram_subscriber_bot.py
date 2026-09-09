@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-import time
 import logging
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -47,8 +46,8 @@ def get_merchants_keyboard():
     try:
         merchants = db.live_vouchers.distinct("merchant")
         # TODO: Add pagination if len(merchants) > 20
-        merchants = merchants[:20] 
-        
+        merchants = merchants[:20]
+
         for merchant in merchants:
             if merchant:
                 markup.add(InlineKeyboardButton(text=merchant, callback_data=f"toggle_{merchant}"))
@@ -61,13 +60,13 @@ def get_merchants_keyboard():
 def handle_merchant_toggle(call):
     if db is None:
         return
-        
+
     try:
         merchant = call.data.split('toggle_')[1]
         chat_id = call.message.chat.id
-        
+
         sub = db.telegram_subscriptions.find_one({"chat_id": chat_id, "merchant": merchant})
-        
+
         if sub:
             db.telegram_subscriptions.delete_one({"_id": sub["_id"]})
             bot.answer_callback_query(call.id, f"❌ Đã hủy theo dõi {merchant}")
@@ -81,7 +80,7 @@ def handle_merchant_toggle(call):
             })
             bot.answer_callback_query(call.id, f"✅ Đã theo dõi {merchant}")
             bot.send_message(chat_id, f"✅ Bạn sẽ nhận được thông báo khi <b>{merchant}</b> có mã mới!", parse_mode="HTML")
-            
+
     except Exception as e:
         logger.error(f"Error handling callback: {e}")
 
@@ -93,12 +92,12 @@ def list_subs(message):
         chat_id = message.chat.id
         subs = db.telegram_subscriptions.find({"chat_id": chat_id})
         merchants = [sub["merchant"] for sub in subs]
-        
+
         if merchants:
             text = "📋 Bạn đang theo dõi các shop sau:\n" + "\n".join([f"- {m}" for m in merchants])
         else:
             text = "Bạn chưa theo dõi shop nào. Gõ /start để chọn shop nhé."
-            
+
         bot.send_message(chat_id, text)
     except Exception as e:
         logger.error(f"Error in /mysubs: {e}")
@@ -110,7 +109,7 @@ def stop_subs(message):
     try:
         chat_id = message.chat.id
         res = db.telegram_subscriptions.delete_many({"chat_id": chat_id})
-        
+
         if res.deleted_count > 0:
             bot.send_message(chat_id, f"❌ Đã hủy toàn bộ {res.deleted_count} shop đang theo dõi.")
         else:
@@ -128,37 +127,37 @@ def link_account(message):
         if len(parts) != 2:
             bot.send_message(chat_id, "⚠️ Cú pháp không hợp lệ. Vui lòng gõ: /lienket [Mã_6_Số]")
             return
-            
+
         code = parts[1]
         now = datetime.now(timezone.utc).isoformat()
-        
+
         # Check code
         link_record = db.telegram_link_codes.find_one({
             "_id": code,
             "used": False,
             "expires_at": {"$gt": now}
         })
-        
+
         if not link_record:
             bot.send_message(chat_id, "❌ Mã không hợp lệ hoặc đã hết hạn, vào lại trang Tài khoản để lấy mã mới.")
             return
-            
+
         user_id = link_record["user_id"]
-        
+
         # Update subscriptions
         db.telegram_subscriptions.update_many(
             {"chat_id": chat_id},
             {"$set": {"user_id": user_id}}
         )
-        
+
         # Mark used
         db.telegram_link_codes.update_one(
             {"_id": code},
             {"$set": {"used": True}}
         )
-        
+
         bot.send_message(chat_id, "✅ Đã liên kết thành công với tài khoản web của bạn! Giờ đây nếu là VIP, bạn sẽ nhận được thông báo sớm nhất.")
-        
+
     except Exception as e:
         logger.error(f"Error in /lienket: {e}")
 

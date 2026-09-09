@@ -3,7 +3,7 @@
 
 const ACCESSTRADE_API_KEY = process.env.ACCESSTRADE_API_KEY || '2IaMVbe2jWph_xuDnZNDydH2RPLYLDd0';
 const ACCESSTRADE_DEEPLINK_URL = 'https://api.accesstrade.vn/v1/deeplinks/create';
-const ACCESSTRADE_COUPON_URL = 'https://api.accesstrade.vn/v1/offers/coupons';
+const ACCESSTRADE_COUPON_URL = 'https://api.accesstrade.vn/v1/offers_informations/coupon';
 
 const handler = async (event, context) => {
   const headers = {

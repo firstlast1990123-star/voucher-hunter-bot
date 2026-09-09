@@ -3,6 +3,7 @@ const Joi = require('joi');
 const PayOS = require('@payos/node');
 const { getDB } = require('../db');
 const { authenticateToken } = require('../middleware');
+const { VIP_PLANS, calculateVipExpiry } = require('../authUtils');
 
 const router = express.Router();
 
@@ -17,9 +18,12 @@ const payos = new PayOS(
     PAYOS_CHECKSUM_KEY
 );
 
+// Chỉ chấp nhận 2 gói: Gói Tuần và Gói Tháng (loại bỏ hoàn toàn vip_yearly)
+// Cho phép amount trong schema nhưng bỏ qua hoàn toàn, tự tra cứu từ VIP_PLANS để chống DevTools tampering
 const createOrderSchema = Joi.object({
-    plan: Joi.string().valid('vip_weekly', 'vip_monthly', 'vip_yearly').required()
-});
+    plan: Joi.string().valid('vip_weekly', 'vip_monthly').required(),
+    amount: Joi.any().optional()
+}).unknown(true);
 
 /**
  * Hàm hỗ trợ sinh orderCode unique cho PayOS (yêu cầu số nguyên)
@@ -30,18 +34,35 @@ function generateOrderCode() {
 }
 
 /**
- * Tính giá trị đơn hàng theo plan
+ * API kiểm tra trạng thái đơn hàng PayOS
+ * GET /api/payment/order-status/:orderCode (Yêu cầu JWT Token)
  */
-function getPlanAmount(plan) {
-    if (plan === 'vip_weekly') return 10000;   // Gói Tuần 10k/7 ngày
-    if (plan === 'vip_monthly') return 17000;  // Gói Tháng 17k/tháng
-    if (plan === 'vip_yearly') return 100000; // 100k/năm
-    return 0;
-}
+router.get('/order-status/:orderCode', authenticateToken, async (req, res) => {
+    try {
+        const orderCode = Number(req.params.orderCode);
+        if (!orderCode || isNaN(orderCode)) {
+            return res.status(400).json({ error: "INVALID_ORDER_CODE", message: "Mã đơn hàng không hợp lệ" });
+        }
+        const db = getDB();
+        const order = await db.collection('payment_orders').findOne({ _id: orderCode });
+        if (!order) {
+            return res.status(404).json({ error: "ORDER_NOT_FOUND", message: "Không tìm thấy đơn hàng" });
+        }
+        // Kiểm tra quyền sở hữu: User chỉ được xem đơn hàng của chính mình
+        if (order.user_id !== req.user_id) {
+            return res.status(403).json({ error: "FORBIDDEN", message: "Bạn không có quyền xem đơn hàng của người khác" });
+        }
+        return res.status(200).json({ success: true, status: order.status, plan: order.plan });
+    } catch (e) {
+        console.error("Lỗi lấy trạng thái order:", e);
+        return res.status(500).json({ error: "SERVER_ERROR", message: "Lỗi máy chủ" });
+    }
+});
 
 /**
  * API #3: Tạo đơn thanh toán PayOS
  * POST /api/payment/create-vip-order (Yêu cầu JWT Token)
+ * Backend tự tra giá từ VIP_PLANS, tuyệt đối không nhận amount từ client
  */
 router.post('/create-vip-order', authenticateToken, async (req, res) => {
     try {
@@ -54,17 +75,22 @@ router.post('/create-vip-order', authenticateToken, async (req, res) => {
         const user_id = req.user_id;
         const db = getDB();
         
-        // Sinh thông tin đơn hàng
+        // Tra giá chuẩn từ Backend, không tin dữ liệu client gửi
+        const planConfig = VIP_PLANS[plan];
+        if (!planConfig) {
+            return res.status(400).json({ error: "INVALID_PLAN", message: "Gói VIP không hợp lệ" });
+        }
+
         const orderCode = generateOrderCode();
-        const amount = getPlanAmount(plan);
-        const description = `Nang cap ${plan === 'vip_monthly' ? 'VIP thang' : 'VIP nam'}`; // Khuyến cáo tiếng Việt không dấu
+        const amount = planConfig.amount;
+        const description = plan === 'vip_monthly' ? 'VIP Thang 30 ngay' : 'VIP Tuan 7 ngay';
 
         const requestData = {
             orderCode,
             amount,
             description,
-            returnUrl: process.env.PAYOS_RETURN_URL,
-            cancelUrl: process.env.PAYOS_CANCEL_URL
+            returnUrl: process.env.PAYOS_RETURN_URL || 'http://localhost:3000/?status=success',
+            cancelUrl: process.env.PAYOS_CANCEL_URL || 'http://localhost:3000/?status=cancel'
         };
 
         // Gọi PayOS SDK tạo link
@@ -120,7 +146,7 @@ router.post('/webhook', async (req, res) => {
         }
 
         // Nếu verify thành công, xử lý logic nâng cấp VIP
-        const { orderCode, amount, code } = verifiedData; 
+        const { orderCode, code } = verifiedData; 
         // `code` của PayOS: "00" là thành công
         
         if (code !== "00") {
@@ -147,24 +173,10 @@ router.post('/webhook', async (req, res) => {
             return res.status(404).json({ error: "USER_NOT_FOUND", message: "Không tìm thấy user của đơn hàng" });
         }
 
-        // 5. Tính toán hạn VIP mới
+        // 5. Tính toán hạn VIP mới qua nguồn chân lý duy nhất (hỗ trợ cộng dồn)
         const now = new Date();
-        let currentVipExpiry = user.vip_expired_at ? new Date(user.vip_expired_at) : now;
-        
-        // Nếu đã hết hạn cũ, thì mốc tính là hiện tại
-        if (currentVipExpiry < now) {
-            currentVipExpiry = now;
-        }
-
-        let daysToAdd = 30;
-        if (order.plan === 'vip_yearly') {
-            daysToAdd = 365;
-        } else if (order.plan === 'vip_weekly') {
-            daysToAdd = 7;
-        } else if (order.plan === 'vip_monthly') {
-            daysToAdd = 30;
-        }
-        currentVipExpiry.setDate(currentVipExpiry.getDate() + daysToAdd);
+        const newExpiry = calculateVipExpiry(user.vip_expired_at, order.plan, now);
+        const resolvedPlan = (order.plan === 'vip_monthly') ? 'vip_monthly' : 'vip_weekly';
 
         // 6. Cập nhật trạng thái
         // Update Order
@@ -184,7 +196,8 @@ router.post('/webhook', async (req, res) => {
             { 
                 $set: { 
                     membership: "vip",
-                    vip_expired_at: currentVipExpiry.toISOString()
+                    current_plan: resolvedPlan,
+                    vip_expired_at: newExpiry.toISOString()
                 } 
             }
         );

@@ -50,8 +50,55 @@ function getTrialRemainingSeconds(user) {
     return diff > 0 ? diff : 0;
 }
 
+const VIP_PLANS = {
+    vip_weekly: {
+        id: 'vip_weekly',
+        name: 'Gói VIP Tuần',
+        days: 7,
+        amount: 10000,
+        description: 'VIP Tuan (7 ngay)'
+    },
+    vip_monthly: {
+        id: 'vip_monthly',
+        name: 'Gói VIP Tháng',
+        days: 30,
+        amount: 17000,
+        description: 'VIP Thang (30 ngay)'
+    }
+};
+
+/**
+ * Tính toán thời hạn VIP mới (hỗ trợ cộng dồn nối tiếp nếu còn hạn)
+ * @param {string|Date|null} currentExpiry - vip_expired_at hiện tại của user
+ * @param {'vip_weekly'|'vip_monthly'|string} plan - Mã gói VIP
+ * @param {Date} [now=new Date()] - Thời điểm hiện tại (dùng cho test)
+ * @returns {Date} Thời điểm hết hạn mới
+ */
+function calculateVipExpiry(currentExpiry, plan, now = new Date()) {
+    const nowDate = now instanceof Date ? now : new Date(now);
+    let baseDate = nowDate;
+
+    if (currentExpiry) {
+        const parsedExpiry = new Date(currentExpiry);
+        if (!isNaN(parsedExpiry.getTime()) && parsedExpiry > nowDate) {
+            baseDate = parsedExpiry;
+        }
+    }
+
+    let daysToAdd = 7; // Mặc định fallback 7 ngày (Gói Tuần / đơn cũ)
+    if (plan === 'vip_monthly') {
+        daysToAdd = 30;
+    } else if (plan === 'vip_weekly') {
+        daysToAdd = 7;
+    }
+
+    return new Date(baseDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+}
+
 module.exports = {
     getEffectiveMembership,
-    getTrialRemainingSeconds
+    getTrialRemainingSeconds,
+    VIP_PLANS,
+    calculateVipExpiry
 };
 

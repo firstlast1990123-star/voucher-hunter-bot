@@ -10,7 +10,7 @@ def notify_admin(title: str, message: str, priority: str = "default"):
     priority: 'default' | 'high' | 'urgent' (🔵 / 🟡 / 🔴)
     """
     chat_id = os.environ.get("TELEGRAM_ADMIN_CHAT_ID")
-    
+
     if not chat_id:
         logger.warning("TELEGRAM_ADMIN_CHAT_ID chưa được cấu hình. Bỏ qua gửi thông báo.")
         return
@@ -23,5 +23,3 @@ def notify_admin(title: str, message: str, priority: str = "default"):
 
     text = f"{emoji} <b>{title}</b>\n\n{message}"
     send_telegram_message(chat_id, text)
-
-# TODO: notify_user(chat_id, message) cho tính năng báo mã mới, cần bảng user_telegram_subscriptions

@@ -84,7 +84,7 @@ def validate_voucher(coupon: dict) -> dict | None:
             if exp.replace(tzinfo=None) < now:
                 print(f"  ✗ HẾT HẠN: {coupon.get('name', 'N/A')}")
                 return None
-        except:
+        except Exception:
             pass
 
     # Loại mã hết lượt

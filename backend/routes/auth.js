@@ -2,25 +2,13 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const rateLimit = require('express-rate-limit');
 const { getDB } = require('../db');
 const { getEffectiveMembership, getTrialRemainingSeconds } = require('../authUtils');
+const { loginLimiter, registerLimiter } = require('../rateLimiter');
 
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_must_be_configured_in_env_32bytes';
-
-// Rate limiter riêng cho API Login: tối đa 5 lần thử trong 15 phút chống brute-force
-const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 phút
-    max: 5,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        error: 'TOO_MANY_REQUESTS',
-        message: 'Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau 15 phút.'
-    }
-});
 
 /**
  * Validate định dạng email đơn giản
@@ -33,8 +21,9 @@ function isValidEmail(email) {
 /**
  * POST /api/auth/register
  * Đăng ký tài khoản mới kèm đồng ý Nghị định 13
+ * Giới hạn 5 lần/giờ theo IP để chống tạo tài khoản ảo hàng loạt
  */
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
     try {
         const { email, password, consent_accepted, allow_marketing } = req.body;
 
@@ -105,6 +94,7 @@ router.post('/register', async (req, res) => {
                 id: newUser._id,
                 email: newUser.email,
                 membership: effectiveMembership,
+                current_plan: newUser.current_plan || null,
                 is_trial: effectiveMembership === 'vip' && !newUser.vip_expired_at,
                 trial_remaining_seconds: getTrialRemainingSeconds(newUser)
             }
@@ -159,6 +149,7 @@ router.post('/login', loginLimiter, async (req, res) => {
                 id: user._id,
                 email: user.email,
                 membership: effectiveMembership,
+                current_plan: user.current_plan || null,
                 is_trial: effectiveMembership === 'vip' && !user.vip_expired_at,
                 trial_remaining_seconds: getTrialRemainingSeconds(user),
                 vip_expired_at: user.vip_expired_at
@@ -204,6 +195,7 @@ router.get('/me', async (req, res) => {
                 id: user._id,
                 email: user.email,
                 membership: effectiveMembership,
+                current_plan: user.current_plan || null,
                 is_trial: effectiveMembership === 'vip' && !user.vip_expired_at,
                 trial_remaining_seconds: getTrialRemainingSeconds(user),
                 vip_expired_at: user.vip_expired_at

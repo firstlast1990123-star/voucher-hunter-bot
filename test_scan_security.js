@@ -124,7 +124,9 @@ async function runTest() {
     }
 }
 
-runTest().catch(err => {
+runTest().then(() => {
+    process.exit(0);
+}).catch(err => {
     console.error("❌ TEST FAILED:", err);
     process.exit(1);
 });

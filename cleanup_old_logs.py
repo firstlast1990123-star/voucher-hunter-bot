@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-import time
 import logging
 from datetime import datetime, timezone, timedelta
 from pymongo import MongoClient
@@ -21,19 +20,19 @@ def get_db():
 
 def main():
     logger.info("Khởi động Cleanup Logs...")
-    
+
     db = get_db()
     if db is None:
         logger.error("Không kết nối được DB, thoát...")
         import sys
         sys.exit(1)
-        
+
     dry_run = os.getenv("DRY_RUN", "true").lower() == "true"
     if dry_run:
         logger.info("=== CHẾ ĐỘ DRY_RUN: Chỉ đếm, không xóa ===")
-        
+
     now = datetime.now(timezone.utc)
-    
+
     # Nhóm A
     tasks = [
         {
@@ -62,7 +61,7 @@ def main():
             "desc": "bản ghi sót lại quá 3 ngày"
         }
     ]
-    
+
     for task in tasks:
         col_name = task["collection"]
         try:
@@ -77,7 +76,7 @@ def main():
                     logger.info(f"[DỌN DẸP] {col_name}: Không có dữ liệu cần xóa ({task['desc']})")
         except Exception as e:
             logger.error(f"Lỗi khi xử lý {col_name}: {e}")
-            
+
     # Kiểm tra dung lượng
     try:
         stats = db.command("dbStats")
@@ -85,18 +84,18 @@ def main():
         # Giới hạn 512MB
         limit_bytes = 512 * 1024 * 1024
         used_percent = (data_size / limit_bytes) * 100
-        
+
         logger.info(f"Dung lượng DB hiện tại: {used_percent:.2f}% ({(data_size / 1024 / 1024):.2f} MB / 512 MB)")
-        
+
         if used_percent > 80:
             notify_admin(
-                "Cảnh báo Dung lượng DB", 
-                f"⚠️ Database đã dùng {used_percent:.2f}% dung lượng free tier (512MB), cân nhắc nâng cấp hoặc kiểm tra lại dữ liệu.", 
+                "Cảnh báo Dung lượng DB",
+                f"⚠️ Database đã dùng {used_percent:.2f}% dung lượng free tier (512MB), cân nhắc nâng cấp hoặc kiểm tra lại dữ liệu.",
                 priority="urgent"
             )
     except Exception as e:
         logger.error(f"Lỗi kiểm tra dung lượng DB: {e}")
-        
+
     logger.info("Hoàn thành Cleanup Logs.")
     import sys
     sys.exit(0)

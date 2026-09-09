@@ -34,9 +34,13 @@
                 <div id="auth-actions" class="flex items-center gap-2">
                     <div id="user-profile-badge" class="hidden flex items-center gap-2 bg-orange-50 text-orange-600 px-3 py-1 rounded-full font-semibold text-sm">
                         <span>👤</span>
-                        <span id="user-email-display" class="truncate max-w-[120px] sm:max-w-[180px]">User</span>
+                        <span id="user-email-display" class="truncate max-w-[100px] sm:max-w-[150px]">User</span>
                         <span id="user-vip-tag" class="px-2 py-0.5 rounded text-xs bg-orange-500 text-white font-bold">VIP</span>
+                        <span id="user-expiry-display" class="hidden text-xs text-orange-700/80 font-normal"></span>
                     </div>
+                    <button id="btn-header-vip" onclick="openVipModal()" class="hidden bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-sm transition flex items-center gap-1">
+                        ⭐ Nâng cấp VIP
+                    </button>
                     <button id="btn-open-auth" onclick="openAuthModal('login')" class="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs sm:text-sm px-4 py-1.5 rounded-full shadow-sm transition">
                         🔑 Đăng nhập / Đăng ký
                     </button>
@@ -229,6 +233,112 @@
         </div>
     </div>
 
+    <!-- Modal Thanh Toán VIP (Gói Tuần / Gói Tháng) -->
+    <div id="vip-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative border border-gray-100 max-h-[90vh] overflow-y-auto">
+            <button onclick="closeVipModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold p-1">✕</button>
+            
+            <div class="text-center mb-5">
+                <span class="text-3xl">👑</span>
+                <h3 id="vip-modal-title" class="text-xl font-black text-gray-900 mt-1">Nâng Cấp Thành Viên VIP</h3>
+                <p id="vip-modal-subtitle" class="text-xs text-gray-500 mt-1">Mở khóa toàn bộ mã giảm giá độc quyền và tính năng tự động áp mã</p>
+                <div id="vip-cumulative-notice" class="hidden mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium text-left">
+                    ⚡ Bạn đang là VIP. Mua thêm gói sẽ <strong>tự động cộng dồn nối tiếp vào hạn dùng hiện tại</strong>!
+                </div>
+            </div>
+
+            <!-- Bước 1: Chọn gói VIP -->
+            <div id="vip-step-select" class="space-y-3 mb-4">
+                <!-- Gói Tuần -->
+                <label id="card-plan-weekly" class="block relative border-2 border-orange-500 bg-orange-50/40 rounded-xl p-4 cursor-pointer transition hover:border-orange-500">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" name="vip-plan" value="vip_weekly" checked onchange="handlePlanSelectionChange('vip_weekly')" class="text-orange-500 focus:ring-orange-500 h-4 w-4">
+                            <div>
+                                <div class="font-bold text-gray-900 text-sm">Gói VIP Tuần</div>
+                                <div class="text-xs text-gray-500">Hạn dùng 7 ngày</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-black text-orange-600 text-base">10.000đ</div>
+                            <div class="text-[11px] text-gray-400">~1.400đ/ngày</div>
+                        </div>
+                    </div>
+                </label>
+
+                <!-- Gói Tháng -->
+                <label id="card-plan-monthly" class="block relative border-2 border-gray-200 rounded-xl p-4 cursor-pointer transition hover:border-orange-500">
+                    <span class="absolute -top-2.5 right-4 bg-red-500 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-full shadow-sm">
+                        Tiết kiệm 43%
+                    </span>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" name="vip-plan" value="vip_monthly" onchange="handlePlanSelectionChange('vip_monthly')" class="text-orange-500 focus:ring-orange-500 h-4 w-4">
+                            <div>
+                                <div class="font-bold text-gray-900 text-sm">Gói VIP Tháng</div>
+                                <div class="text-xs text-gray-500">Hạn dùng 30 ngày</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-black text-orange-600 text-base">17.000đ</div>
+                            <div class="text-[11px] text-green-600 font-semibold">Siêu hời</div>
+                        </div>
+                    </div>
+                </label>
+
+                <div id="vip-order-error" class="hidden text-red-500 text-xs font-medium text-center"></div>
+
+                <button id="btn-create-vip-order" onclick="submitVipPlanOrder()" class="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition text-sm flex items-center justify-center gap-2">
+                    💳 Tạo Mã Thanh Toán QR (10.000đ)
+                </button>
+            </div>
+
+            <!-- Bước 2: Quét mã QR PayOS -->
+            <div id="vip-step-qr" class="hidden text-center space-y-4">
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 inline-block mx-auto">
+                    <img id="vip-qr-image" src="" alt="Mã VietQR Thanh Toán" class="w-56 h-56 mx-auto rounded-lg shadow-sm border border-gray-100 bg-white object-contain">
+                    <div class="mt-2 text-xs font-semibold text-gray-600 flex items-center justify-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Mở app ngân hàng quét mã VietQR</span>
+                    </div>
+                </div>
+
+                <div class="bg-orange-50 rounded-xl p-3 border border-orange-100 text-xs text-left space-y-1.5">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Gói đăng ký:</span>
+                        <span id="vip-summary-plan" class="font-bold text-gray-800">VIP Tuần (7 ngày)</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Số tiền:</span>
+                        <span id="vip-summary-amount" class="font-bold text-orange-600 text-sm">10.000đ</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Mã đơn hàng:</span>
+                        <span id="vip-summary-ordercode" class="font-mono text-gray-700"></span>
+                    </div>
+                    <div class="text-[11px] text-gray-500 pt-1 border-t border-orange-200/60">
+                        📌 Lưu ý: Vui lòng chuyển đúng số tiền và nội dung chuyển khoản để hệ thống tự động kích hoạt ngay lập tức.
+                    </div>
+                </div>
+
+                <div class="text-xs text-gray-500 flex items-center justify-center gap-1.5">
+                    <span class="animate-spin inline-block">⏳</span>
+                    <span>Đang chờ thanh toán... Tự động kích hoạt khi nhận tiền.</span>
+                </div>
+
+                <div class="flex gap-2">
+                    <a id="vip-btn-checkout-link" href="#" target="_blank" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-3 rounded-lg text-xs transition text-center">
+                        🔗 Mở trang thanh toán
+                    </a>
+                    <button onclick="resetVipModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-2 px-3 rounded-lg text-xs transition">
+                        Chọn lại gói
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <!-- JS Modules -->
     <script src="js/config.js"></script>
     <script src="js/toast.js"></script>
@@ -286,6 +396,8 @@
             const btnLogout = document.getElementById('btn-logout');
             const emailDisplay = document.getElementById('user-email-display');
             const vipTag = document.getElementById('user-vip-tag');
+            const expiryDisplay = document.getElementById('user-expiry-display');
+            const btnHeaderVip = document.getElementById('btn-header-vip');
 
             const user = getCurrentUser();
 
@@ -299,10 +411,13 @@
                     if (user.membership === 'vip') {
                         if (user.is_trial) {
                             const mins = user.trial_remaining_seconds ? Math.ceil(user.trial_remaining_seconds / 60) : 120;
-                            vipTag.textContent = `⚡ Trial (${mins}p)`;
+                            vipTag.textContent = `⚡ Trial (còn ${mins}p)`;
                             vipTag.className = 'px-2 py-0.5 rounded text-xs bg-amber-500 text-white font-bold';
+                        } else if (user.current_plan === 'vip_monthly') {
+                            vipTag.textContent = '👑 VIP Tháng';
+                            vipTag.className = 'px-2 py-0.5 rounded text-xs bg-orange-500 text-white font-bold';
                         } else {
-                            vipTag.textContent = '👑 VIP';
+                            vipTag.textContent = '👑 VIP Tuần';
                             vipTag.className = 'px-2 py-0.5 rounded text-xs bg-orange-500 text-white font-bold';
                         }
                     } else {
@@ -310,11 +425,207 @@
                         vipTag.className = 'px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-700 font-bold';
                     }
                 }
+
+                if (expiryDisplay) {
+                    if (user.membership === 'vip' && !user.is_trial && user.vip_expired_at) {
+                        const expDate = new Date(user.vip_expired_at);
+                        if (!isNaN(expDate.getTime())) {
+                            const day = String(expDate.getDate()).padStart(2, '0');
+                            const month = String(expDate.getMonth() + 1).padStart(2, '0');
+                            const year = expDate.getFullYear();
+                            expiryDisplay.textContent = `• Hạn: ${day}/${month}/${year}`;
+                            expiryDisplay.classList.remove('hidden');
+                        } else {
+                            expiryDisplay.classList.add('hidden');
+                        }
+                    } else {
+                        expiryDisplay.classList.add('hidden');
+                    }
+                }
+
+                if (btnHeaderVip) {
+                    btnHeaderVip.classList.remove('hidden');
+                    if (user.membership === 'vip' && !user.is_trial) {
+                        btnHeaderVip.innerHTML = '⚡ Gia hạn VIP';
+                    } else {
+                        btnHeaderVip.innerHTML = '⭐ Nâng cấp VIP';
+                    }
+                }
             } else {
                 if (btnOpenAuth) btnOpenAuth.classList.remove('hidden');
                 if (profileBadge) profileBadge.classList.add('hidden');
                 if (btnLogout) btnLogout.classList.add('hidden');
+                if (btnHeaderVip) btnHeaderVip.classList.add('hidden');
+                if (expiryDisplay) expiryDisplay.classList.add('hidden');
             }
+        }
+
+        // VIP Modal & Plan Selection Handlers
+        let vipPollTimer = null;
+        let selectedVipPlan = 'vip_weekly';
+
+        function openVipModal() {
+            if (!isLoggedIn()) {
+                showToast('Vui lòng đăng nhập hoặc đăng ký để nâng cấp VIP!', 'warning');
+                openAuthModal('login');
+                return;
+            }
+
+            const modal = document.getElementById('vip-modal');
+            if (!modal) return;
+
+            const user = getCurrentUser();
+            const isVip = user && user.membership === 'vip' && !user.is_trial;
+            const titleEl = document.getElementById('vip-modal-title');
+            const subTitleEl = document.getElementById('vip-modal-subtitle');
+            const noticeEl = document.getElementById('vip-cumulative-notice');
+
+            if (isVip) {
+                if (titleEl) titleEl.textContent = 'Gia Hạn Gói VIP';
+                if (subTitleEl) subTitleEl.textContent = 'Tiếp tục nhận mã VIP không gián đoạn';
+                if (noticeEl) noticeEl.classList.remove('hidden');
+            } else {
+                if (titleEl) titleEl.textContent = 'Nâng Cấp Thành Viên VIP';
+                if (subTitleEl) subTitleEl.textContent = 'Mở khóa toàn bộ mã giảm giá độc quyền và tính năng tự động áp mã';
+                if (noticeEl) noticeEl.classList.add('hidden');
+            }
+
+            resetVipModal();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeVipModal() {
+            if (vipPollTimer) {
+                clearInterval(vipPollTimer);
+                vipPollTimer = null;
+            }
+            const modal = document.getElementById('vip-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        function resetVipModal() {
+            if (vipPollTimer) {
+                clearInterval(vipPollTimer);
+                vipPollTimer = null;
+            }
+            const stepSelect = document.getElementById('vip-step-select');
+            const stepQr = document.getElementById('vip-step-qr');
+            const errEl = document.getElementById('vip-order-error');
+
+            if (stepSelect) stepSelect.classList.remove('hidden');
+            if (stepQr) stepQr.classList.add('hidden');
+            if (errEl) errEl.classList.add('hidden');
+            
+            const radioWeekly = document.querySelector('input[name="vip-plan"][value="vip_weekly"]');
+            if (radioWeekly) radioWeekly.checked = true;
+            handlePlanSelectionChange('vip_weekly');
+        }
+
+        function handlePlanSelectionChange(plan) {
+            selectedVipPlan = plan;
+            const cardWeekly = document.getElementById('card-plan-weekly');
+            const cardMonthly = document.getElementById('card-plan-monthly');
+            const btn = document.getElementById('btn-create-vip-order');
+
+            if (plan === 'vip_monthly') {
+                if (cardWeekly) cardWeekly.className = 'block relative border-2 border-gray-200 rounded-xl p-4 cursor-pointer transition hover:border-orange-500';
+                if (cardMonthly) cardMonthly.className = 'block relative border-2 border-orange-500 bg-orange-50/40 rounded-xl p-4 cursor-pointer transition hover:border-orange-500';
+                if (btn) btn.innerHTML = '💳 Tạo Mã Thanh Toán QR (17.000đ)';
+            } else {
+                if (cardWeekly) cardWeekly.className = 'block relative border-2 border-orange-500 bg-orange-50/40 rounded-xl p-4 cursor-pointer transition hover:border-orange-500';
+                if (cardMonthly) cardMonthly.className = 'block relative border-2 border-gray-200 rounded-xl p-4 cursor-pointer transition hover:border-orange-500';
+                if (btn) btn.innerHTML = '💳 Tạo Mã Thanh Toán QR (10.000đ)';
+            }
+        }
+
+        async function submitVipPlanOrder() {
+            const btn = document.getElementById('btn-create-vip-order');
+            const errEl = document.getElementById('vip-order-error');
+            if (errEl) errEl.classList.add('hidden');
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Đang kết nối PayOS...';
+            }
+
+            try {
+                const res = await fetch(`${CONFIG.API_BASE_URL}/payment/create-vip-order`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ plan: selectedVipPlan })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    document.getElementById('vip-step-select').classList.add('hidden');
+                    const qrStep = document.getElementById('vip-step-qr');
+                    qrStep.classList.remove('hidden');
+
+                    const qrImg = document.getElementById('vip-qr-image');
+                    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.qrCode)}`;
+                    
+                    document.getElementById('vip-summary-plan').textContent = selectedVipPlan === 'vip_monthly' ? 'VIP Tháng (30 ngày)' : 'VIP Tuần (7 ngày)';
+                    document.getElementById('vip-summary-amount').textContent = selectedVipPlan === 'vip_monthly' ? '17.000đ' : '10.000đ';
+                    document.getElementById('vip-summary-ordercode').textContent = `#${data.orderCode}`;
+                    document.getElementById('vip-btn-checkout-link').href = data.checkoutUrl;
+
+                    pollVipOrderStatus(data.orderCode);
+                } else {
+                    if (errEl) {
+                        errEl.textContent = data.message || 'Không thể tạo đơn hàng, vui lòng thử lại sau.';
+                        errEl.classList.remove('hidden');
+                    }
+                }
+            } catch (e) {
+                console.error("Lỗi tạo đơn:", e);
+                if (errEl) {
+                    errEl.textContent = 'Lỗi mạng khi tạo đơn hàng. Vui lòng thử lại.';
+                    errEl.classList.remove('hidden');
+                }
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = selectedVipPlan === 'vip_monthly' ? '💳 Tạo Mã Thanh Toán QR (17.000đ)' : '💳 Tạo Mã Thanh Toán QR (10.000đ)';
+                }
+            }
+        }
+
+        function pollVipOrderStatus(orderCode) {
+            if (vipPollTimer) clearInterval(vipPollTimer);
+
+            vipPollTimer = setInterval(async () => {
+                try {
+                    const res = await fetch(`${CONFIG.API_BASE_URL}/payment/order-status/${orderCode}`, {
+                        headers: getAuthHeaders()
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.status === 'paid') {
+                            clearInterval(vipPollTimer);
+                            vipPollTimer = null;
+                            showToast('🎉 Thanh toán thành công! Gói VIP đã được kích hoạt!', 'success');
+                            
+                            const meRes = await fetch(`${CONFIG.API_BASE_URL}/auth/me`, {
+                                headers: getAuthHeaders()
+                            });
+                            if (meRes.ok) {
+                                const meData = await meRes.json();
+                                if (meData.user) {
+                                    setCurrentUser(meData.user);
+                                }
+                            }
+                            updateAuthUI();
+                            closeVipModal();
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Poll status error:", e);
+                }
+            }, 2500);
         }
 
         async function submitLogin() {

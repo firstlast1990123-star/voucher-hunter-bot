@@ -22,6 +22,16 @@ async function runTests() {
     let authToken = null;
     let testUserId = null;
 
+    const testClientIp = `192.0.2.${Math.floor(Math.random() * 200) + 1}`;
+    const originalFetch = global.fetch;
+    const fetch = (url, options = {}) => {
+        const headers = {
+            'X-Forwarded-For': testClientIp,
+            ...(options.headers || {})
+        };
+        return originalFetch(url, { ...options, headers });
+    };
+
     try {
         // ==================================================================
         // 1. TEST ĐĂNG KÝ (VALIDATION & CONSENT NGHỊ ĐỊNH 13)
@@ -336,7 +346,9 @@ async function runTests() {
     }
 }
 
-runTests().catch(err => {
+runTests().then(() => {
+    process.exit(0);
+}).catch(err => {
     console.error("❌ TEST THẤT BẠI:", err);
     process.exit(1);
 });

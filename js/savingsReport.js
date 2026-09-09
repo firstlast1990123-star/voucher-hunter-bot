@@ -7,7 +7,7 @@ async function loadSavingsReport() {
     const amountEl = document.getElementById('savings-amount');
     if (!amountEl) return;
 
-    // TODO: cần backend cung cấp API tổng hợp chính xác, hiện tại tính tạm ở frontend chỉ để demo UI
+    // Lấy báo cáo tiết kiệm chính xác từ API backend
     try {
         if (!isLoggedIn()) {
             amountEl.textContent = '0đ';

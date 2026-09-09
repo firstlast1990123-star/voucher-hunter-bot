@@ -16,9 +16,7 @@ def validate_voucher_core(voucher: dict, db=None, source: str = "unknown") -> tu
     Nếu có db, tự động log kết quả vào verification_logs.
     """
     now = datetime.now(timezone.utc)
-    is_valid = True
-    reason = "Hợp lệ"
-    
+
     def return_result(val, res):
         if db is not None:
             db.verification_logs.insert_one({
@@ -28,11 +26,11 @@ def validate_voucher_core(voucher: dict, db=None, source: str = "unknown") -> tu
                 "checked_at": now.isoformat()
             })
         return val, res
-    
+
     # 1. Kiểm tra thời hạn
     valid_from = parse_iso_datetime(voucher.get('valid_from'))
     valid_to = parse_iso_datetime(voucher.get('valid_to'))
-    
+
     if valid_from and valid_from > now:
         return return_result(False, "Chưa tới hạn (valid_from)")
     if valid_to and valid_to < now:
@@ -49,19 +47,19 @@ def validate_voucher_core(voucher: dict, db=None, source: str = "unknown") -> tu
     url = voucher.get('landing_url')
     if not url or url == "https://shopee.vn":
         return return_result(False, "Không có landing_url cụ thể để kiểm chứng")
-        
+
     try:
         res = requests.get(url, timeout=10)
         if res.status_code != 200:
             return return_result(False, f"Landing page lỗi HTTP {res.status_code}")
-            
+
         html_content = res.text.lower()
-        
+
         # Kiểm tra keyword lỗi
         for kw in config.INVALID_KEYWORDS:
             if kw.lower() in html_content:
                 return return_result(False, f"Landing page chứa keyword lỗi: '{kw}'")
-                
+
     except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
         raise e
     except requests.exceptions.HTTPError as e:
@@ -83,13 +81,13 @@ def get_effective_membership(user: dict) -> str:
     if not user:
         return "free"
     now = datetime.now(timezone.utc)
-    
+
     # 1. VIP thật còn hạn
     if user.get("membership") == "vip" and user.get("vip_expired_at"):
         vip_expired_dt = parse_iso_datetime(user.get("vip_expired_at"))
         if vip_expired_dt and vip_expired_dt > now:
             return "vip"
-            
+
     # 2. VIP Trial còn hạn (trong 2 tiếng)
     if not user.get("trial_used") and user.get("trial_started_at"):
         trial_started_dt = parse_iso_datetime(user.get("trial_started_at"))
@@ -97,5 +95,5 @@ def get_effective_membership(user: dict) -> str:
             trial_end_dt = trial_started_dt + timedelta(hours=2)
             if now < trial_end_dt:
                 return "vip"
-                
+
     return "free"

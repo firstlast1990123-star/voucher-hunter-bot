@@ -79,18 +79,16 @@ exports.handler = async (event, context) => {
                 currentVipExpiry = new Date(now);
               }
 
-              let daysToAdd = 30;
-              if (order.plan === 'vip_yearly') daysToAdd = 365;
-              else if (order.plan === 'vip_weekly') daysToAdd = 7;
-              else if (order.plan === 'vip_monthly') daysToAdd = 30;
-
+              let daysToAdd = (order.plan === 'vip_monthly') ? 30 : 7;
               currentVipExpiry.setDate(currentVipExpiry.getDate() + daysToAdd);
+              const resolvedPlan = (order.plan === 'vip_monthly') ? 'vip_monthly' : 'vip_weekly';
 
               await db.collection('users').updateOne(
                 { _id: order.user_id },
                 {
                   $set: {
                     membership: 'vip',
+                    current_plan: resolvedPlan,
                     vip_expired_at: currentVipExpiry.toISOString()
                   }
                 },

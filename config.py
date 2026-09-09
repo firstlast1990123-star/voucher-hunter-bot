@@ -8,7 +8,7 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 DB_NAME = os.getenv("DB_NAME", "voucher_db")
 
 ACCESSTRADE_API_KEY = os.getenv("ACCESSTRADE_API_KEY", "")
-ACCESSTRADE_ENDPOINT = os.getenv("ACCESSTRADE_ENDPOINT", "https://api.accesstrade.vn/v1/offers/coupons")
+ACCESSTRADE_ENDPOINT = os.getenv("ACCESSTRADE_ENDPOINT", "https://api.accesstrade.vn/v1/offers_informations/coupon")
 
 # Configuration cho Bots
 HUNTER_INTERVAL = 30 * 60  # 30 phút cào 1 lần

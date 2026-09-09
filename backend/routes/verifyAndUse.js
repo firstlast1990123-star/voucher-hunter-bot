@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { getDB } = require('../db');
 const { authenticateToken } = require('../middleware');
+const { reportBrokenLimiter } = require('../rateLimiter');
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ const router = express.Router();
  * Gọi Python script để verify
  */
 function verifyWithPython(code) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const scriptPath = path.join(__dirname, '../../verify_wrapper.py');
         const venvPython = path.join(__dirname, '../../.venv/bin/python3');
         const pythonBin = fs.existsSync(venvPython) ? venvPython : 'python3';
@@ -87,9 +88,9 @@ router.post('/verify-and-use', async (req, res) => {
 
 /**
  * API #2: Report broken
- * POST /api/vouchers/report-broken (Yêu cầu JWT Token)
+ * POST /api/vouchers/report-broken (Yêu cầu JWT Token & giới hạn 10 lần/giờ theo IP)
  */
-router.post('/report-broken', authenticateToken, async (req, res) => {
+router.post('/report-broken', reportBrokenLimiter, authenticateToken, async (req, res) => {
     try {
         const { voucher_code } = req.body;
         const user_id = req.user_id;

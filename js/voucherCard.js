@@ -264,32 +264,15 @@ async function reportBrokenVoucher(code) {
 }
 
 /**
- * Chuyển hướng mua VIP (API #3)
+ * Mở modal chọn gói VIP (Gói Tuần hoặc Gói Tháng)
  */
-async function upgradeToVIP() {
-    try {
-        if (!isLoggedIn()) {
-            showToast("Vui lòng đăng nhập để nâng cấp VIP.", "warning");
-            if (typeof openAuthModal === 'function') openAuthModal('login');
-            return;
-        }
-
-        const response = await fetch(`${CONFIG.API_BASE_URL}/payment/create-vip-order`, {
-            method: 'POST',
-            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ plan: 'vip_monthly' })
-        });
-        const data = await response.json();
-        
-        if (response.ok && data.checkoutUrl) {
-            window.location.href = data.checkoutUrl;
-        } else if (response.status === 401) {
-            showToast("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", "warning");
-            if (typeof openAuthModal === 'function') openAuthModal('login');
-        } else {
-            showToast(data.message || "Không thể tạo giao dịch", "error");
-        }
-    } catch (e) {
-        showToast("Lỗi mạng, thử lại sau.", "error");
+function upgradeToVIP() {
+    if (!isLoggedIn()) {
+        showToast("Vui lòng đăng nhập để nâng cấp VIP.", "warning");
+        if (typeof openAuthModal === 'function') openAuthModal('login');
+        return;
+    }
+    if (typeof openVipModal === 'function') {
+        openVipModal();
     }
 }

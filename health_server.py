@@ -19,7 +19,7 @@ def get_db():
         client = MongoClient(config.MONGO_URI, serverSelectionTimeoutMS=5000)
         client.admin.command('ping')
         return client[config.DB_NAME]
-    except Exception as e:
+    except Exception:
         return None
 
 def check_bot_health(bot_id, threshold):
@@ -27,31 +27,31 @@ def check_bot_health(bot_id, threshold):
     if db is None:
         # Nếu mất kết nối DB, trả về 500 nhưng server vẫn phải sống
         return jsonify({"status": "unknown", "error": "Database connection failed"}), 500
-        
+
     try:
         health_record = db.bot_health.find_one({"_id": bot_id})
         if not health_record:
             return jsonify({"status": "down", "error": "No heartbeat record found"}), 503
-            
+
         last_heartbeat_str = health_record.get("last_heartbeat_at")
         if not last_heartbeat_str:
             return jsonify({"status": "down", "error": "Invalid heartbeat record"}), 503
-            
+
         last_heartbeat = datetime.fromisoformat(last_heartbeat_str)
         now = datetime.now(timezone.utc)
-        
+
         diff = (now - last_heartbeat).total_seconds()
-        
+
         if diff > threshold:
             # Gửi thông báo nếu vượt ngưỡng cooldown
             last_alert_str = health_record.get("last_alert_sent_at")
             should_alert = True
-            
+
             if last_alert_str:
                 last_alert = datetime.fromisoformat(last_alert_str)
                 if (now - last_alert).total_seconds() < ALERT_COOLDOWN:
                     should_alert = False
-                    
+
             if should_alert:
                 notify_admin(
                     title=f"Bot Treo: {bot_id}",
@@ -64,19 +64,19 @@ def check_bot_health(bot_id, threshold):
                 )
 
             return jsonify({
-                "status": "down", 
+                "status": "down",
                 "error": f"Heartbeat is too old: {int(diff)} seconds",
                 "last_heartbeat_at": last_heartbeat_str,
                 "last_cycle_result": health_record.get("last_cycle_result")
             }), 503
-            
+
         return jsonify({
             "status": "alive",
             "last_heartbeat_at": last_heartbeat_str,
             "cycle_count": health_record.get("cycle_count"),
             "last_cycle_result": health_record.get("last_cycle_result")
         }), 200
-        
+
     except Exception as e:
         return jsonify({"status": "unknown", "error": str(e)}), 500
 

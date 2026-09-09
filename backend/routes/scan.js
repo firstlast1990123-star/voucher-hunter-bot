@@ -1,6 +1,7 @@
 const express = require('express');
 const { getDB } = require('../db');
 const { optionalAuthenticateToken } = require('../middleware');
+const { scanLimiter } = require('../rateLimiter');
 
 const router = express.Router();
 
@@ -10,9 +11,9 @@ const CACHE_TTL = 30 * 60 * 1000; // 30 phút
 
 /**
  * API #4: Smart Scanner
- * POST /api/scan (Hỗ trợ cả Khách vãng lai và User đã đăng nhập)
+ * POST /api/scan (Hỗ trợ cả Khách vãng lai và User đã đăng nhập, giới hạn 30 lần/giờ theo IP)
  */
-router.post('/', optionalAuthenticateToken, async (req, res) => {
+router.post('/', scanLimiter, optionalAuthenticateToken, async (req, res) => {
     try {
         const { shopee_link } = req.body;
         
