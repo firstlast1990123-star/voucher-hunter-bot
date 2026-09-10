@@ -10,6 +10,10 @@ function createLimiter(windowMs, max, customMessage) {
         standardHeaders: true,
         legacyHeaders: false,
         statusCode: 429,
+        keyGenerator: (req) => {
+            return req.ip || req.headers['x-nf-client-connection-ip'] || req.headers['client-ip'] || req.headers['x-forwarded-for'] || '127.0.0.1';
+        },
+        validate: false,
         message: {
             error: 'TOO_MANY_REQUESTS',
             message: customMessage || 'Bạn thao tác quá nhanh, vui lòng thử lại sau.'

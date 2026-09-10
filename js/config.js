@@ -1,7 +1,7 @@
 // js/config.js
 const CONFIG = {
-    // Tạm thời trỏ tới backend local
-    API_BASE_URL: 'http://localhost:3000/api', 
+    // Endpoint API tương đối (tự động theo domain hiện tại trên Netlify và Local)
+    API_BASE_URL: '/api', 
     
     // Logo Shopee làm ảnh loading
     SHOPEE_LOGO_URL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Shopee.svg/2560px-Shopee.svg.png',
