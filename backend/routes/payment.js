@@ -148,33 +148,26 @@ router.post('/webhook', async (req, res) => {
     try {
         const webhookData = req.body;
 
-        // 0. PayOS webhook test ping (khi bấm "Kiểm tra Webhook" trên dashboard my.payos.vn)
-        // Trả về 200 ngay lập tức mà không cần can thiệp DB hay thông tin user
-        if (webhookData && (
-            webhookData.data?.orderCode === 123 ||
-            webhookData.orderCode === 123 ||
-            webhookData.data?.description === 'VQRIO123'
-        )) {
-            console.log("ℹ️ [WEBHOOK] Nhận test ping từ PayOS dashboard (orderCode: 123)");
-            return res.status(200).json({ success: true, message: "PayOS test webhook received successfully" });
+        // 1. Trường hợp request ping kiểm tra kết nối không mang chữ ký
+        if (!webhookData || !webhookData.signature) {
+            console.log("ℹ️ [WEBHOOK] Nhận request POST ping không kèm chữ ký, phản hồi 200 OK (không xử lý đơn hàng)");
+            return res.status(200).json({
+                success: true,
+                message: "Webhook endpoint is active (ping received without signature)"
+            });
         }
 
-        // 1. Verify webhook signature bảo mật từ PayOS
+        // 2. Mọi request có trường signature BẮT BUỘC phải qua xác thực chữ ký số HMAC-SHA256
         let verifiedData;
         try {
             verifiedData = payos.verifyPaymentWebhookData(webhookData);
         } catch (verifyErr) {
-            console.error("Lỗi verify signature webhook:", verifyErr);
+            console.error("Lỗi verify signature webhook:", verifyErr.message);
             return res.status(400).json({ error: "INVALID_SIGNATURE", message: "Chữ ký webhook không hợp lệ" });
         }
 
         // Nếu verify thành công, xử lý logic nâng cấp VIP
         const { orderCode, code } = verifiedData; 
-        
-        // Kiểm tra nếu là đơn test sau khi verify
-        if (orderCode === 123 || orderCode === 0) {
-            return res.status(200).json({ success: true, message: "PayOS test webhook verified successfully" });
-        }
 
         // `code` của PayOS: "00" là thành công
         if (code !== "00") {
@@ -184,11 +177,14 @@ router.post('/webhook', async (req, res) => {
 
         const db = getDB();
 
-        // 2. Lấy đơn hàng từ DB
+        // 3. Lấy đơn hàng từ DB
         const order = await db.collection('payment_orders').findOne({ _id: Number(orderCode) });
         if (!order) {
-            console.warn(`[WEBHOOK] Không tìm thấy đơn hàng ${orderCode} trong DB (có thể là đơn test PayOS). Trả về 200 để xác nhận.`);
-            return res.status(200).json({ success: true, message: "Order not found, webhook acknowledged" });
+            // Đơn hàng không tồn tại trong DB (ví dụ: test webhook do PayOS gửi với chữ ký hợp lệ nhưng mã đơn mẫu,
+            // hoặc đơn hàng thuộc hệ thống khác dùng chung cổng).
+            // Do chữ ký đã được kiểm tra an toàn, trả về 200 để PayOS xác nhận đã nhận webhook thành công.
+            console.warn(`[WEBHOOK] Nhận webhook hợp lệ từ PayOS cho đơn hàng ${orderCode}, nhưng không có trong DB (đơn test hoặc hệ thống khác).`);
+            return res.status(200).json({ success: true, message: "Webhook verified successfully, order not in system" });
         }
 
         // 3. Nếu đơn đã paid rồi thì bỏ qua (idempotent)

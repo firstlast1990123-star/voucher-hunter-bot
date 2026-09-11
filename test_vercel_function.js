@@ -4,7 +4,20 @@
  */
 
 const assert = require('assert');
+const crypto = require('crypto');
 const handler = require('./api/index');
+
+function generatePayOSSignature(data, checksumKey) {
+    const sortedKeys = Object.keys(data).sort();
+    const signatureData = sortedKeys
+        .map(key => `${key}=${data[key] !== null && data[key] !== undefined ? data[key] : ''}`)
+        .join('&');
+
+    return crypto
+        .createHmac('sha256', checksumKey)
+        .update(signatureData)
+        .digest('hex');
+}
 
 // Helper giả lập event của Serverless Function
 function createServerlessEvent(httpMethod, path, body = null, headers = {}) {
@@ -65,28 +78,66 @@ async function runVercelTests() {
     assert.strictEqual(body3a.success, true);
     console.log("  ✅ PASSED: Webhook GET ping trả về 200 OK:", body3a);
 
-    console.log("\n▶ [TEST 3b] POST /api/payment/webhook (PayOS Dashboard Test Ping orderCode=123):");
+    console.log("\n▶ [TEST 3b] POST /api/payment/webhook (Ping không kèm chữ ký -> 200 OK):");
     const event3b = createServerlessEvent('POST', '/api/payment/webhook', {
-        code: '00',
-        data: { orderCode: 123, description: 'VQRIO123' }
+        ping: true
     });
     const res3b = await fn(event3b, {});
     assert.strictEqual(res3b.statusCode, 200);
     const body3b = JSON.parse(res3b.body);
     assert.strictEqual(body3b.success, true);
-    console.log("  ✅ PASSED: Webhook test ping trả về 200 OK:", body3b);
+    console.log("  ✅ PASSED: POST ping không signature trả về 200 OK:", body3b);
 
-    console.log("\n▶ [TEST 3c] POST /api/payment/webhook (Bảo mật: chữ ký sai trên đơn thực tế):");
+    console.log("\n▶ [TEST 3c] POST /api/payment/webhook (BẢO MẬT: orderCode=123 có signature sai PHẢI bị 400):");
     const event3c = createServerlessEvent('POST', '/api/payment/webhook', {
         code: '00',
-        data: { orderCode: 999999 },
-        signature: 'invalid_signature_test'
+        data: { orderCode: 123 },
+        signature: 'fake_sig'
     });
     const res3c = await fn(event3c, {});
-    assert.strictEqual(res3c.statusCode, 400);
+    assert.strictEqual(res3c.statusCode, 400, "orderCode: 123 với chữ ký giả KHÔNG ĐƯỢC bypass, phải trả về 400");
     const body3c = JSON.parse(res3c.body);
     assert.strictEqual(body3c.error, 'INVALID_SIGNATURE');
-    console.log("  ✅ PASSED: Webhook bảo vệ chữ ký hoạt động chính xác:", body3c);
+    console.log("  ✅ PASSED: orderCode=123 với signature sai bị chặn 400 thành công:", body3c);
+
+    console.log("\n▶ [TEST 3d] POST /api/payment/webhook (BẢO MẬT: orderCode=999999 có signature sai PHẢI bị 400):");
+    const event3d = createServerlessEvent('POST', '/api/payment/webhook', {
+        code: '00',
+        data: { orderCode: 999999 },
+        signature: 'fake_sig'
+    });
+    const res3d = await fn(event3d, {});
+    assert.strictEqual(res3d.statusCode, 400);
+    const body3d = JSON.parse(res3d.body);
+    assert.strictEqual(body3d.error, 'INVALID_SIGNATURE');
+    console.log("  ✅ PASSED: orderCode=999999 với signature sai bị chặn 400 thành công:", body3d);
+
+    console.log("\n▶ [TEST 3e] POST /api/payment/webhook (PayOS confirmWebhook test với chữ ký HỢP LỆ -> 200 OK):");
+    const checksumKey = process.env.PAYOS_CHECKSUM_KEY || '06590c9ee8673aebf7c219a73f3caebf202e846b995dc20f22681c6a6bb70318';
+    const sampleTestData = {
+        orderCode: 123,
+        amount: 3000,
+        description: 'VQRIO123',
+        accountNumber: '12345678',
+        reference: 'TF230204212323',
+        transactionDateTime: '2023-02-04 18:25:00',
+        currency: 'VND',
+        paymentLinkId: '124c33293c43417ab7879e14c8d9eb18',
+        code: '00',
+        desc: 'Thành công'
+    };
+    const validSignature = generatePayOSSignature(sampleTestData, checksumKey);
+    const event3e = createServerlessEvent('POST', '/api/payment/webhook', {
+        code: '00',
+        desc: 'success',
+        data: sampleTestData,
+        signature: validSignature
+    });
+    const res3e = await fn(event3e, {});
+    assert.strictEqual(res3e.statusCode, 200, "Webhook với chữ ký hợp lệ từ PayOS phải trả về 200");
+    const body3e = JSON.parse(res3e.body);
+    assert.strictEqual(body3e.success, true);
+    console.log("  ✅ PASSED: Webhook PayOS thật/test với chữ ký hợp lệ trả về 200 OK:", body3e);
 
     // -------------------------------------------------------------------------
     // 4. TEST Route không tồn tại -> 404

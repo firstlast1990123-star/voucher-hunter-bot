@@ -4,7 +4,20 @@
  */
 
 const assert = require('assert');
+const crypto = require('crypto');
 const { handler } = require('./netlify/functions/api');
+
+function generatePayOSSignature(data, checksumKey) {
+    const sortedKeys = Object.keys(data).sort();
+    const signatureData = sortedKeys
+        .map(key => `${key}=${data[key] !== null && data[key] !== undefined ? data[key] : ''}`)
+        .join('&');
+
+    return crypto
+        .createHmac('sha256', checksumKey)
+        .update(signatureData)
+        .digest('hex');
+}
 
 // Helper giả lập event của Netlify Function
 function createNetlifyEvent(httpMethod, path, body = null, headers = {}) {
@@ -74,28 +87,66 @@ async function runNetlifyTests() {
     assert.strictEqual(body4a.success, true);
     console.log("  ✅ PASSED: Webhook GET ping qua Netlify handler trả về 200 OK:", body4a);
 
-    console.log("\n▶ [TEST 4b] POST /.netlify/functions/api/payment/webhook (PayOS Dashboard Test Ping orderCode=123):");
+    console.log("\n▶ [TEST 4b] POST /.netlify/functions/api/payment/webhook (Ping không kèm chữ ký -> 200 OK):");
     const event4b = createNetlifyEvent('POST', '/.netlify/functions/api/payment/webhook', {
-        code: '00',
-        data: { orderCode: 123, description: 'VQRIO123' }
+        ping: true
     });
     const res4b = await handler(event4b, {});
     assert.strictEqual(res4b.statusCode, 200);
     const body4b = JSON.parse(res4b.body);
     assert.strictEqual(body4b.success, true);
-    console.log("  ✅ PASSED: Webhook test ping qua Netlify handler trả về 200 OK:", body4b);
+    console.log("  ✅ PASSED: POST ping không signature qua Netlify handler trả về 200 OK:", body4b);
 
-    console.log("\n▶ [TEST 4c] POST /.netlify/functions/api/payment/webhook (Bảo mật: chữ ký sai trên đơn thực tế):");
+    console.log("\n▶ [TEST 4c] POST /.netlify/functions/api/payment/webhook (BẢO MẬT: orderCode=123 có signature sai PHẢI bị 400):");
     const event4c = createNetlifyEvent('POST', '/.netlify/functions/api/payment/webhook', {
         code: '00',
-        data: { orderCode: 999999 },
-        signature: 'invalid_signature_test'
+        data: { orderCode: 123 },
+        signature: 'fake_sig'
     });
     const res4c = await handler(event4c, {});
-    assert.strictEqual(res4c.statusCode, 400);
+    assert.strictEqual(res4c.statusCode, 400, "orderCode: 123 với chữ ký giả KHÔNG ĐƯỢC bypass, phải trả về 400");
     const body4c = JSON.parse(res4c.body);
     assert.strictEqual(body4c.error, 'INVALID_SIGNATURE');
-    console.log("  ✅ PASSED: Webhook bảo vệ chữ ký hoạt động chính xác qua Netlify handler:", body4c);
+    console.log("  ✅ PASSED: orderCode=123 với signature sai bị chặn 400 thành công:", body4c);
+
+    console.log("\n▶ [TEST 4d] POST /.netlify/functions/api/payment/webhook (BẢO MẬT: orderCode=999999 có signature sai PHẢI bị 400):");
+    const event4d = createNetlifyEvent('POST', '/.netlify/functions/api/payment/webhook', {
+        code: '00',
+        data: { orderCode: 999999 },
+        signature: 'fake_sig'
+    });
+    const res4d = await handler(event4d, {});
+    assert.strictEqual(res4d.statusCode, 400);
+    const body4d = JSON.parse(res4d.body);
+    assert.strictEqual(body4d.error, 'INVALID_SIGNATURE');
+    console.log("  ✅ PASSED: orderCode=999999 với signature sai bị chặn 400 thành công:", body4d);
+
+    console.log("\n▶ [TEST 4e] POST /.netlify/functions/api/payment/webhook (PayOS confirmWebhook test với chữ ký HỢP LỆ -> 200 OK):");
+    const checksumKey = process.env.PAYOS_CHECKSUM_KEY || '06590c9ee8673aebf7c219a73f3caebf202e846b995dc20f22681c6a6bb70318';
+    const sampleTestData = {
+        orderCode: 123,
+        amount: 3000,
+        description: 'VQRIO123',
+        accountNumber: '12345678',
+        reference: 'TF230204212323',
+        transactionDateTime: '2023-02-04 18:25:00',
+        currency: 'VND',
+        paymentLinkId: '124c33293c43417ab7879e14c8d9eb18',
+        code: '00',
+        desc: 'Thành công'
+    };
+    const validSignature = generatePayOSSignature(sampleTestData, checksumKey);
+    const event4e = createNetlifyEvent('POST', '/.netlify/functions/api/payment/webhook', {
+        code: '00',
+        desc: 'success',
+        data: sampleTestData,
+        signature: validSignature
+    });
+    const res4e = await handler(event4e, {});
+    assert.strictEqual(res4e.statusCode, 200, "Webhook với chữ ký hợp lệ từ PayOS phải trả về 200");
+    const body4e = JSON.parse(res4e.body);
+    assert.strictEqual(body4e.success, true);
+    console.log("  ✅ PASSED: Webhook PayOS thật/test với chữ ký hợp lệ qua Netlify handler trả về 200 OK:", body4e);
 
     // -------------------------------------------------------------------------
     // 5. TEST Route không tồn tại -> 404
