@@ -55,19 +55,38 @@ async function runVercelTests() {
     console.log("  ✅ PASSED: Route auth/register hoạt động mượt mà trong Vercel Function:", body2);
 
     // -------------------------------------------------------------------------
-    // 3. TEST POST /api/payment/webhook (PayOS Webhook trên Vercel)
+    // 3. TEST /api/payment/webhook (PayOS Webhook GET ping & POST test trên Vercel)
     // -------------------------------------------------------------------------
-    console.log("\n▶ [TEST 3] POST /api/payment/webhook (Xác nhận webhook hoạt động):");
-    const event3 = createServerlessEvent('POST', '/api/payment/webhook', {
+    console.log("\n▶ [TEST 3a] GET /api/payment/webhook (PayOS connectivity ping):");
+    const event3a = createServerlessEvent('GET', '/api/payment/webhook');
+    const res3a = await fn(event3a, {});
+    assert.strictEqual(res3a.statusCode, 200);
+    const body3a = JSON.parse(res3a.body);
+    assert.strictEqual(body3a.success, true);
+    console.log("  ✅ PASSED: Webhook GET ping trả về 200 OK:", body3a);
+
+    console.log("\n▶ [TEST 3b] POST /api/payment/webhook (PayOS Dashboard Test Ping orderCode=123):");
+    const event3b = createServerlessEvent('POST', '/api/payment/webhook', {
         code: '00',
-        data: { orderCode: 123 },
+        data: { orderCode: 123, description: 'VQRIO123' }
+    });
+    const res3b = await fn(event3b, {});
+    assert.strictEqual(res3b.statusCode, 200);
+    const body3b = JSON.parse(res3b.body);
+    assert.strictEqual(body3b.success, true);
+    console.log("  ✅ PASSED: Webhook test ping trả về 200 OK:", body3b);
+
+    console.log("\n▶ [TEST 3c] POST /api/payment/webhook (Bảo mật: chữ ký sai trên đơn thực tế):");
+    const event3c = createServerlessEvent('POST', '/api/payment/webhook', {
+        code: '00',
+        data: { orderCode: 999999 },
         signature: 'invalid_signature_test'
     });
-    const res3 = await fn(event3, {});
-    assert.strictEqual(res3.statusCode, 400);
-    const body3 = JSON.parse(res3.body);
-    assert.strictEqual(body3.error, 'INVALID_SIGNATURE');
-    console.log("  ✅ PASSED: Webhook PayOS được gọi trơn tru qua Vercel function handler:", body3);
+    const res3c = await fn(event3c, {});
+    assert.strictEqual(res3c.statusCode, 400);
+    const body3c = JSON.parse(res3c.body);
+    assert.strictEqual(body3c.error, 'INVALID_SIGNATURE');
+    console.log("  ✅ PASSED: Webhook bảo vệ chữ ký hoạt động chính xác:", body3c);
 
     // -------------------------------------------------------------------------
     // 4. TEST Route không tồn tại -> 404

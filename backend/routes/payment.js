@@ -129,12 +129,35 @@ router.post('/create-vip-order', authenticateToken, async (req, res) => {
 });
 
 /**
+ * API #4.1: Kiểm tra kết nối webhook (GET / HEAD)
+ * GET /api/payment/webhook
+ * PayOS hoặc dashboard ping kiểm tra endpoint trước khi cấu hình
+ */
+router.get('/webhook', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "PayOS Webhook endpoint is active"
+    });
+});
+
+/**
  * API #4: Webhook nhận callback từ PayOS
  * POST /api/payment/webhook
  */
 router.post('/webhook', async (req, res) => {
     try {
         const webhookData = req.body;
+
+        // 0. PayOS webhook test ping (khi bấm "Kiểm tra Webhook" trên dashboard my.payos.vn)
+        // Trả về 200 ngay lập tức mà không cần can thiệp DB hay thông tin user
+        if (webhookData && (
+            webhookData.data?.orderCode === 123 ||
+            webhookData.orderCode === 123 ||
+            webhookData.data?.description === 'VQRIO123'
+        )) {
+            console.log("ℹ️ [WEBHOOK] Nhận test ping từ PayOS dashboard (orderCode: 123)");
+            return res.status(200).json({ success: true, message: "PayOS test webhook received successfully" });
+        }
 
         // 1. Verify webhook signature bảo mật từ PayOS
         let verifiedData;
@@ -147,8 +170,13 @@ router.post('/webhook', async (req, res) => {
 
         // Nếu verify thành công, xử lý logic nâng cấp VIP
         const { orderCode, code } = verifiedData; 
-        // `code` của PayOS: "00" là thành công
         
+        // Kiểm tra nếu là đơn test sau khi verify
+        if (orderCode === 123 || orderCode === 0) {
+            return res.status(200).json({ success: true, message: "PayOS test webhook verified successfully" });
+        }
+
+        // `code` của PayOS: "00" là thành công
         if (code !== "00") {
             // Có thể update order status = failed/cancelled tuỳ logic, ở đây trả về 200 cho PayOS khỏi retry
             return res.status(200).json({ success: true, message: "Giao dịch không thành công" });
@@ -159,7 +187,8 @@ router.post('/webhook', async (req, res) => {
         // 2. Lấy đơn hàng từ DB
         const order = await db.collection('payment_orders').findOne({ _id: Number(orderCode) });
         if (!order) {
-            return res.status(404).json({ error: "ORDER_NOT_FOUND", message: "Không tìm thấy đơn hàng" });
+            console.warn(`[WEBHOOK] Không tìm thấy đơn hàng ${orderCode} trong DB (có thể là đơn test PayOS). Trả về 200 để xác nhận.`);
+            return res.status(200).json({ success: true, message: "Order not found, webhook acknowledged" });
         }
 
         // 3. Nếu đơn đã paid rồi thì bỏ qua (idempotent)

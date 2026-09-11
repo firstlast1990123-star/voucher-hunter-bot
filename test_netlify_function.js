@@ -64,20 +64,38 @@ async function runNetlifyTests() {
     console.log("  ✅ PASSED: Route auth/register hoạt động mượt mà trong Netlify Function:", body3);
 
     // -------------------------------------------------------------------------
-    // 4. TEST POST /.netlify/functions/api/payment/webhook (PayOS Webhook)
+    // 4. TEST /.netlify/functions/api/payment/webhook (PayOS Webhook GET ping & POST test)
     // -------------------------------------------------------------------------
-    console.log("\n▶ [TEST 4] POST /.netlify/functions/api/payment/webhook (Xác nhận webhook hoạt động):");
-    const event4 = createNetlifyEvent('POST', '/.netlify/functions/api/payment/webhook', {
+    console.log("\n▶ [TEST 4a] GET /.netlify/functions/api/payment/webhook (PayOS connectivity ping):");
+    const event4a = createNetlifyEvent('GET', '/.netlify/functions/api/payment/webhook');
+    const res4a = await handler(event4a, {});
+    assert.strictEqual(res4a.statusCode, 200);
+    const body4a = JSON.parse(res4a.body);
+    assert.strictEqual(body4a.success, true);
+    console.log("  ✅ PASSED: Webhook GET ping qua Netlify handler trả về 200 OK:", body4a);
+
+    console.log("\n▶ [TEST 4b] POST /.netlify/functions/api/payment/webhook (PayOS Dashboard Test Ping orderCode=123):");
+    const event4b = createNetlifyEvent('POST', '/.netlify/functions/api/payment/webhook', {
         code: '00',
-        data: { orderCode: 123 },
+        data: { orderCode: 123, description: 'VQRIO123' }
+    });
+    const res4b = await handler(event4b, {});
+    assert.strictEqual(res4b.statusCode, 200);
+    const body4b = JSON.parse(res4b.body);
+    assert.strictEqual(body4b.success, true);
+    console.log("  ✅ PASSED: Webhook test ping qua Netlify handler trả về 200 OK:", body4b);
+
+    console.log("\n▶ [TEST 4c] POST /.netlify/functions/api/payment/webhook (Bảo mật: chữ ký sai trên đơn thực tế):");
+    const event4c = createNetlifyEvent('POST', '/.netlify/functions/api/payment/webhook', {
+        code: '00',
+        data: { orderCode: 999999 },
         signature: 'invalid_signature_test'
     });
-    const res4 = await handler(event4, {});
-    // Khi gửi signature sai thì PayOS SDK verify trả về 400 INVALID_SIGNATURE
-    assert.strictEqual(res4.statusCode, 400);
-    const body4 = JSON.parse(res4.body);
-    assert.strictEqual(body4.error, 'INVALID_SIGNATURE');
-    console.log("  ✅ PASSED: Webhook PayOS được gọi trơn tru qua Netlify function handler:", body4);
+    const res4c = await handler(event4c, {});
+    assert.strictEqual(res4c.statusCode, 400);
+    const body4c = JSON.parse(res4c.body);
+    assert.strictEqual(body4c.error, 'INVALID_SIGNATURE');
+    console.log("  ✅ PASSED: Webhook bảo vệ chữ ký hoạt động chính xác qua Netlify handler:", body4c);
 
     // -------------------------------------------------------------------------
     // 5. TEST Route không tồn tại -> 404
