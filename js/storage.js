@@ -125,31 +125,7 @@ async function requestAccountDeletion() {
         openAuthModal('login');
         return;
     }
-
-    if (!confirm("Bạn có chắc chắn muốn yêu cầu xóa tài khoản? Quá trình này sẽ không thể hoàn tác sau 7 ngày.")) {
-        return;
-    }
-    // Double confirmation to prevent accidental clicks
-    if (!confirm("CẢNH BÁO LẦN 2: Toàn bộ dữ liệu của bạn, bao gồm các voucher đã lưu và gói VIP sẽ bị vô hiệu hóa. Đồng ý xóa?")) {
-        return;
-    }
-    
-    try {
-        const res = await fetch(`${CONFIG.API_BASE_URL}/user/request-deletion`, {
-            method: 'POST',
-            headers: getAuthHeaders({ 'Content-Type': 'application/json' })
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-            showToast(data.message, 'success');
-            removeToken();
-            updateAuthUI();
-        } else {
-            showToast(data.error || 'Lỗi gửi yêu cầu xóa', 'error');
-        }
-    } catch (e) {
-        showToast('Lỗi mạng', 'error');
-    }
+    openDeleteAccountModal();
 }
 
 // Xử lý chuyển tab

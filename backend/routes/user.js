@@ -1,6 +1,8 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const { getDB } = require('../db');
 const { authenticateToken } = require('../middleware');
+const { accountDeletionLimiter } = require('../rateLimiter');
 
 const router = express.Router();
 
@@ -80,11 +82,37 @@ router.get('/export-my-data', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/user/request-deletion
- * Yêu cầu xóa dữ liệu cá nhân (Quyền được xóa dữ liệu)
- * Yêu cầu JWT Token
+ * Yêu cầu xóa dữ liệu cá nhân (Quyền được xóa dữ liệu theo Nghị định 13)
+ * Yêu cầu JWT Token + Xác thực lại mật khẩu hiện tại
  */
-router.post('/request-deletion', authenticateToken, async (req, res) => {
+router.post('/request-deletion', authenticateToken, accountDeletionLimiter, async (req, res) => {
     try {
+        const { currentPassword } = req.body || {};
+
+        if (!currentPassword || typeof currentPassword !== 'string') {
+            return res.status(400).json({
+                error: 'MISSING_PASSWORD',
+                message: 'Vui lòng nhập mật khẩu hiện tại để xác thực yêu cầu xóa tài khoản.'
+            });
+        }
+
+        const user = req.user;
+        if (!user || !user.password_hash) {
+            return res.status(401).json({
+                error: 'USER_NOT_FOUND',
+                message: 'Không tìm thấy tài khoản người dùng.'
+            });
+        }
+
+        // Xác thực lại mật khẩu hiện tại bằng bcrypt (Bắt buộc cho hành động nhạy cảm)
+        const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({
+                error: 'INCORRECT_PASSWORD',
+                message: 'Mật khẩu hiện tại không chính xác. Không thể yêu cầu xóa tài khoản.'
+            });
+        }
+
         const user_id = req.user_id;
         const db = getDB();
         await db.collection('users').updateOne(
@@ -99,11 +127,11 @@ router.post('/request-deletion', authenticateToken, async (req, res) => {
         
         res.status(200).json({
             success: true,
-            message: "Yêu cầu xóa tài khoản đã được ghi nhận. Hệ thống sẽ tự động xử lý sau 7 ngày."
+            message: "Yêu cầu xóa tài khoản đã được ghi nhận. Hệ thống sẽ tự động xử lý xóa vĩnh viễn sau 7 ngày theo Nghị định 13."
         });
     } catch (error) {
         console.error("Lỗi request-deletion:", error);
-        res.status(500).json({ success: false, error: "Lỗi server" });
+        res.status(500).json({ success: false, error: "SERVER_ERROR", message: "Lỗi máy chủ nội bộ" });
     }
 });
 

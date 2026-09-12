@@ -48,6 +48,18 @@ async function authenticateToken(req, res, next) {
             });
         }
 
+        // Kiểm tra thu hồi JWT khi mật khẩu đã thay đổi (JWT Revocation)
+        if (user.password_changed_at) {
+            const passwordChangedTime = new Date(user.password_changed_at).getTime();
+            const tokenIssuedTime = decoded.auth_time || ((decoded.iat || 0) * 1000);
+            if (tokenIssuedTime < passwordChangedTime) {
+                return res.status(401).json({
+                    error: 'TOKEN_REVOKED',
+                    message: 'Phiên đăng nhập đã hết hiệu lực do mật khẩu đã thay đổi, vui lòng đăng nhập lại.'
+                });
+            }
+        }
+
         // Tính membership hiệu lực qua nguồn chân lý duy nhất (có tính cả VIP Trial 2 tiếng)
         const actualMembership = getEffectiveMembership(user);
 

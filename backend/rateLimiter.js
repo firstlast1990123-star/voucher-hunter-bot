@@ -56,11 +56,35 @@ const scanLimiter = createLimiter(
     'Bạn đã tra cứu link quá nhiều lần trong 1 giờ. Vui lòng thử lại sau.'
 );
 
+// 6. /api/auth/forgot-password: 3 lần / 1 giờ theo IP (chống spam email)
+const forgotPasswordLimiter = createLimiter(
+    60 * 60 * 1000,
+    3,
+    'Bạn đã yêu cầu đặt lại mật khẩu quá nhiều lần trong 1 giờ. Vui lòng thử lại sau.'
+);
+
+// 7. /api/auth/change-password: 5 lần / 15 phút theo IP (chống brute-force currentPassword)
+const changePasswordLimiter = createLimiter(
+    15 * 60 * 1000,
+    5,
+    'Bạn đã thử đổi mật khẩu quá nhiều lần. Vui lòng thử lại sau 15 phút.'
+);
+
+// 8. /api/user/request-deletion: 5 lần / 15 phút theo IP
+const accountDeletionLimiter = createLimiter(
+    15 * 60 * 1000,
+    5,
+    'Bạn đã thao tác yêu cầu xóa tài khoản quá nhiều lần. Vui lòng thử lại sau 15 phút.'
+);
+
 module.exports = {
     globalLimiter,
     loginLimiter,
     registerLimiter,
     reportBrokenLimiter,
     scanLimiter,
+    forgotPasswordLimiter,
+    changePasswordLimiter,
+    accountDeletionLimiter,
     createLimiter
 };

@@ -4,7 +4,9 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { getDB } = require('../db');
 const { getEffectiveMembership, getTrialRemainingSeconds } = require('../authUtils');
-const { loginLimiter, registerLimiter } = require('../rateLimiter');
+const { loginLimiter, registerLimiter, forgotPasswordLimiter, changePasswordLimiter } = require('../rateLimiter');
+const { authenticateToken } = require('../middleware');
+const { sendPasswordResetEmail } = require('../emailService');
 
 const router = express.Router();
 
@@ -64,6 +66,7 @@ router.post('/register', registerLimiter, async (req, res) => {
             _id: userId,
             email: normalizedEmail,
             password_hash: passwordHash,
+            password_changed_at: null,
             membership: 'free',
             vip_expired_at: null,
             created_at: now,
@@ -80,7 +83,7 @@ router.post('/register', registerLimiter, async (req, res) => {
 
         // 5. Tạo JWT token
         const token = jwt.sign(
-            { user_id: newUser._id, email: newUser.email },
+            { user_id: newUser._id, email: newUser.email, auth_time: Date.now() },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -135,7 +138,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 
         // 3. Tạo JWT token
         const token = jwt.sign(
-            { user_id: user._id, email: user.email },
+            { user_id: user._id, email: user.email, auth_time: Date.now() },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -164,29 +167,11 @@ router.post('/login', loginLimiter, async (req, res) => {
 /**
  * GET /api/auth/me
  * Lấy thông tin user hiện tại (yêu cầu Authorization: Bearer <token>)
+ * Tự động kiểm tra thu hồi JWT qua middleware authenticateToken
  */
-router.get('/me', async (req, res) => {
+router.get('/me', authenticateToken, async (req, res) => {
     try {
-        const authHeader = req.headers['authorization'];
-        const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-        if (!token) {
-            return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Chưa đăng nhập.' });
-        }
-
-        let decoded;
-        try {
-            decoded = jwt.verify(token, JWT_SECRET);
-        } catch (e) {
-            return res.status(401).json({ error: 'INVALID_TOKEN', message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' });
-        }
-
-        const db = getDB();
-        const user = await db.collection('users').findOne({ _id: decoded.user_id });
-        if (!user) {
-            return res.status(401).json({ error: 'USER_NOT_FOUND', message: 'Tài khoản không tồn tại.' });
-        }
-
+        const user = req.user;
         const effectiveMembership = getEffectiveMembership(user);
 
         res.status(200).json({
@@ -204,6 +189,236 @@ router.get('/me', async (req, res) => {
     } catch (err) {
         console.error('Lỗi auth/me:', err);
         res.status(500).json({ error: 'SERVER_ERROR' });
+    }
+});
+
+/**
+ * POST /api/auth/forgot-password
+ * Yêu cầu đặt lại mật khẩu qua email
+ * Rate limit: 3 lần/giờ theo IP (forgotPasswordLimiter)
+ * Kèm cơ chế silent throttling chống dội bom email
+ */
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
+    try {
+        const { email } = req.body || {};
+
+        if (!email || !isValidEmail(email)) {
+            return res.status(400).json({
+                error: 'INVALID_EMAIL',
+                message: 'Vui lòng nhập địa chỉ email hợp lệ.'
+            });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+        const db = getDB();
+
+        // 1. Tìm user theo email
+        const user = await db.collection('users').findOne({ email: normalizedEmail });
+
+        // Thông báo phản hồi chung cho cả trường hợp tìm thấy và không tìm thấy (Anti-enumeration)
+        const genericSuccessResponse = {
+            success: true,
+            message: 'Nếu email tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu. Vui lòng kiểm tra hộp thư đến (và mục spam).'
+        };
+
+        if (!user) {
+            // Không tiết lộ sự tồn tại của email
+            return res.status(200).json(genericSuccessResponse);
+        }
+
+        // 2. Chống dội bom email: Kiểm tra số lần gửi cho email này trong 1 giờ qua
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const recentCount = await db.collection('password_reset_tokens').countDocuments({
+            email: normalizedEmail,
+            created_at: { $gt: oneHourAgo }
+        });
+
+        if (recentCount >= 3) {
+            // Đã đạt giới hạn 3 lần/giờ cho email này, trả về thông báo chung mà không gửi thêm email
+            return res.status(200).json(genericSuccessResponse);
+        }
+
+        // 3. Sinh token ngẫu nhiên an toàn 32 bytes (64 ký tự hex)
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + 20 * 60 * 1000).toISOString(); // 20 phút
+
+        // Vô hiệu hóa các token cũ chưa sử dụng của user này
+        await db.collection('password_reset_tokens').updateMany(
+            { user_id: user._id, used: false },
+            { $set: { used: true, invalidated_at: now.toISOString() } }
+        );
+
+        // Lưu bản ghi băm vào DB (tuyệt đối không lưu token gốc)
+        await db.collection('password_reset_tokens').insertOne({
+            token_hash: tokenHash,
+            user_id: user._id,
+            email: normalizedEmail,
+            created_at: now.toISOString(),
+            expires_at: expiresAt,
+            used: false,
+            used_at: null
+        });
+
+        // 4. Gửi email qua Resend API
+        await sendPasswordResetEmail(normalizedEmail, rawToken);
+
+        return res.status(200).json(genericSuccessResponse);
+    } catch (err) {
+        console.error('Lỗi forgot-password:', err);
+        return res.status(500).json({ error: 'SERVER_ERROR', message: 'Lỗi hệ thống khi yêu cầu đặt lại mật khẩu.' });
+    }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Đặt lại mật khẩu mới bằng token nhận từ email
+ */
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { token, newPassword } = req.body || {};
+
+        if (!token || typeof token !== 'string') {
+            return res.status(400).json({
+                error: 'INVALID_RESET_TOKEN',
+                message: 'Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.'
+            });
+        }
+
+        if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+            return res.status(400).json({
+                error: 'WEAK_PASSWORD',
+                message: 'Mật khẩu mới phải có tối thiểu 8 ký tự.'
+            });
+        }
+
+        const db = getDB();
+        const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
+        const nowIso = new Date().toISOString();
+
+        // 1. Tìm bản ghi token hợp lệ
+        const resetRecord = await db.collection('password_reset_tokens').findOne({
+            token_hash: tokenHash,
+            used: false,
+            expires_at: { $gt: nowIso }
+        });
+
+        if (!resetRecord) {
+            return res.status(400).json({
+                error: 'INVALID_RESET_TOKEN',
+                message: 'Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.'
+            });
+        }
+
+        // 2. Băm mật khẩu mới bằng bcryptjs (salt rounds = 10)
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(newPassword, salt);
+        const changedAt = new Date().toISOString();
+
+        // 3. Cập nhật password_hash và password_changed_at trong users
+        await db.collection('users').updateOne(
+            { _id: resetRecord.user_id },
+            {
+                $set: {
+                    password_hash: passwordHash,
+                    password_changed_at: changedAt
+                }
+            }
+        );
+
+        // 4. Đánh dấu token đã dùng (single-use)
+        await db.collection('password_reset_tokens').updateOne(
+            { _id: resetRecord._id },
+            {
+                $set: {
+                    used: true,
+                    used_at: changedAt
+                }
+            }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại bằng mật khẩu mới.'
+        });
+    } catch (err) {
+        console.error('Lỗi reset-password:', err);
+        return res.status(500).json({ error: 'SERVER_ERROR', message: 'Lỗi hệ thống khi đặt lại mật khẩu.' });
+    }
+});
+
+/**
+ * PUT /api/auth/change-password
+ * Đổi mật khẩu khi đang đăng nhập (Yêu cầu JWT Token)
+ * Xác thực lại currentPassword bằng bcrypt trước khi cập nhật
+ */
+router.put('/change-password', authenticateToken, changePasswordLimiter, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body || {};
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                error: 'MISSING_FIELDS',
+                message: 'Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới.'
+            });
+        }
+
+        if (typeof newPassword !== 'string' || newPassword.length < 8) {
+            return res.status(400).json({
+                error: 'WEAK_PASSWORD',
+                message: 'Mật khẩu mới phải có tối thiểu 8 ký tự.'
+            });
+        }
+
+        if (currentPassword === newPassword) {
+            return res.status(400).json({
+                error: 'SAME_PASSWORD',
+                message: 'Mật khẩu mới không được trùng với mật khẩu hiện tại.'
+            });
+        }
+
+        const user = req.user;
+        if (!user || !user.password_hash) {
+            return res.status(401).json({
+                error: 'USER_NOT_FOUND',
+                message: 'Không tìm thấy tài khoản người dùng.'
+            });
+        }
+
+        // So khớp mật khẩu hiện tại bằng bcrypt
+        const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({
+                error: 'INCORRECT_PASSWORD',
+                message: 'Mật khẩu hiện tại không chính xác.'
+            });
+        }
+
+        // Băm mật khẩu mới bằng bcryptjs
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(newPassword, salt);
+        const changedAt = new Date().toISOString();
+
+        const db = getDB();
+        await db.collection('users').updateOne(
+            { _id: user._id },
+            {
+                $set: {
+                    password_hash: passwordHash,
+                    password_changed_at: changedAt
+                }
+            }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại trên các thiết bị khác.'
+        });
+    } catch (err) {
+        console.error('Lỗi change-password:', err);
+        return res.status(500).json({ error: 'SERVER_ERROR', message: 'Lỗi hệ thống khi đổi mật khẩu.' });
     }
 });
 

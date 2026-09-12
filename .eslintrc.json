@@ -36,7 +36,10 @@
         "updateAuthUI": "readonly",
         "loadMyStorage": "readonly",
         "loadSavingsReport": "readonly",
-        "scanShopeeLink": "readonly"
+        "scanShopeeLink": "readonly",
+        "openDeleteAccountModal": "readonly",
+        "openChangePasswordModal": "readonly",
+        "openForgotPasswordModal": "readonly"
       },
       "rules": {
         "no-unused-vars": "off"
