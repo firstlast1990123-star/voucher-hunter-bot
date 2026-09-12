@@ -22,9 +22,18 @@ const app = express();
 // Tin tưởng proxy (chuẩn triển khai production/Netlify để nhận diện đúng IP client)
 app.set('trust proxy', 1);
 
+const { parseRequestBody } = require('./validationUtils');
+
 // Middleware cơ bản
 app.use(cors());
 app.use(express.json());
+app.use(express.text({ type: '*/*' }));
+
+// Chuẩn hóa req.body phòng thủ nếu body là Buffer hoặc chuỗi JSON (Serverless runtime)
+app.use((req, res, next) => {
+    req.body = parseRequestBody(req.body);
+    next();
+});
 
 // Tự động kết nối MongoDB trước khi xử lý request (quan trọng cho môi trường Serverless cold-start)
 app.use(async (req, res, next) => {
@@ -79,8 +88,19 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, _next) => {
+    // Xử lý lỗi cú pháp JSON không hợp lệ từ express.json()
+    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        return res.status(400).json({
+            error: 'BAD_REQUEST',
+            message: 'Định dạng dữ liệu JSON không hợp lệ.'
+        });
+    }
+
     console.error('Server error:', err);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message });
+    res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Đã có lỗi xảy ra trên hệ thống, vui lòng thử lại sau.'
+    });
 });
 
 module.exports = app;

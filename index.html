@@ -555,7 +555,7 @@
             try {
                 const res = await fetch(`${CONFIG.API_BASE_URL}/payment/create-vip-order`, {
                     method: 'POST',
-                    headers: getAuthHeaders(),
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ plan: selectedVipPlan })
                 });
                 const data = await res.json();

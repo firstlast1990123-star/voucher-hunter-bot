@@ -2,6 +2,7 @@ const express = require('express');
 const Joi = require('joi');
 const { getDB } = require('../db');
 const { authenticateToken } = require('../middleware');
+const { formatJoiError, parseRequestBody } = require('../validationUtils');
 
 const router = express.Router();
 
@@ -16,9 +17,10 @@ const saveVoucherSchema = Joi.object({
  */
 router.post('/save', authenticateToken, async (req, res) => {
     try {
-        const { error, value } = saveVoucherSchema.validate(req.body);
+        const body = parseRequestBody(req.body);
+        const { error, value } = saveVoucherSchema.validate(body);
         if (error) {
-            return res.status(400).json({ error: "VALIDATION_ERROR", message: error.details[0].message });
+            return res.status(400).json({ error: "VALIDATION_ERROR", message: formatJoiError(error) });
         }
 
         const { voucher_code } = value;

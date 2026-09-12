@@ -4,6 +4,7 @@ const PayOS = require('@payos/node');
 const { getDB } = require('../db');
 const { authenticateToken } = require('../middleware');
 const { VIP_PLANS, calculateVipExpiry } = require('../authUtils');
+const { formatJoiError, parseRequestBody } = require('../validationUtils');
 
 const router = express.Router();
 
@@ -66,9 +67,10 @@ router.get('/order-status/:orderCode', authenticateToken, async (req, res) => {
  */
 router.post('/create-vip-order', authenticateToken, async (req, res) => {
     try {
-        const { error, value } = createOrderSchema.validate(req.body);
+        const body = parseRequestBody(req.body);
+        const { error, value } = createOrderSchema.validate(body);
         if (error) {
-            return res.status(400).json({ error: "VALIDATION_ERROR", message: error.details[0].message });
+            return res.status(400).json({ error: "VALIDATION_ERROR", message: formatJoiError(error) });
         }
 
         const { plan } = value;
