@@ -109,3 +109,4 @@ async function sendPasswordResetEmail(toEmail, rawToken) {
 module.exports = {
     sendPasswordResetEmail
 };
+
