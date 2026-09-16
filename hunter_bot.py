@@ -9,6 +9,9 @@ import time
 import requests
 import logging
 from datetime import datetime, timezone, timedelta
+import hashlib
+import urllib.parse
+from bs4 import BeautifulSoup
 from typing import Optional
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
@@ -37,25 +40,83 @@ def get_db():
         logger.error(f"Lỗi MongoDB: {e}")
         return None
 
-def parse_discount(discount_str):
-    if not discount_str:
-        return "fixed", 0, None
-    d_str = str(discount_str).lower().replace('.', '').replace(',', '')
-    percent_match = re.search(r'(\d+)%', d_str)
+def parse_discount(discount_str, extra_text=""):
+    if not discount_str and not extra_text:
+        return "fixed", 0.0, None
+    full_str = f"{discount_str or ''} {extra_text or ''}".lower().replace('.', '').replace(',', '')
+    
+    # 1. Percent
+    percent_match = re.search(r'(\d+)\s*%', full_str)
     if percent_match:
         max_val = None
-        max_match = re.search(r'tối đa\s*(\d+)(k|đ)?', d_str)
+        max_match = re.search(r'tối đa\s*(\d+)\s*(k|đ|triệu|tr)?', full_str)
         if max_match:
             num, unit = float(max_match.group(1)), max_match.group(2)
-            max_val = num * 1000 if unit == 'k' else num
+            if unit == 'k':
+                max_val = num * 1000
+            elif unit in ('triệu', 'tr'):
+                max_val = num * 1000000
+            elif num < 1000 and unit != 'đ':
+                max_val = num * 1000
+            else:
+                max_val = num
         return "percent", float(percent_match.group(1)), max_val
-    fixed_match = re.search(r'(\d+)(k|đ)?', d_str)
+
+    # 2. Triệu / Tr
+    triệu_match = re.search(r'(\d+)\s*(?:triệu|tr)', full_str)
+    if triệu_match:
+        return "fixed", float(triệu_match.group(1)) * 1000000, None
+
+    # 3. Fixed k/đ
+    fixed_match = re.search(r'(\d+)\s*(k|đ)', full_str)
     if fixed_match:
         num, unit = float(fixed_match.group(1)), fixed_match.group(2)
-        if unit == 'k' or (num < 1000 and not unit):
-            num *= 1000
-        return "fixed", num, None
-    return "fixed", 0, None
+        val = num * 1000 if unit == 'k' else num
+        if val < 1000 and unit != 'đ':
+            val *= 1000
+        return "fixed", val, None
+
+    # 4. Plain number (>= 1000)
+    plain_match = re.search(r'(\d{4,})', full_str)
+    if plain_match:
+        return "fixed", float(plain_match.group(1)), None
+
+    return "fixed", 0.0, None
+
+def parse_expiry(time_str, now=None):
+    if now is None:
+        now = datetime.now(timezone.utc)
+    if not time_str:
+        return (now + timedelta(days=7)).replace(hour=23, minute=59, second=59, microsecond=0).isoformat()
+    t_str = str(time_str).lower().strip()
+    day_match = re.search(r'(\d+)\s*(?:days?|ngày)', t_str)
+    if day_match:
+        days = int(day_match.group(1))
+        return (now + timedelta(days=days)).replace(hour=23, minute=59, second=59, microsecond=0).isoformat()
+    hour_match = re.search(r'(\d+)\s*(?:hours?|giờ)', t_str)
+    if hour_match:
+        hours = int(hour_match.group(1))
+        return (now + timedelta(hours=hours)).replace(microsecond=0).isoformat()
+    month_match = re.search(r'(\d+)\s*(?:months?|tháng)', t_str)
+    if month_match:
+        months = int(month_match.group(1))
+        return (now + timedelta(days=months * 30)).replace(hour=23, minute=59, second=59, microsecond=0).isoformat()
+    return (now + timedelta(days=7)).replace(hour=23, minute=59, second=59, microsecond=0).isoformat()
+
+def parse_min_order(title, desc=""):
+    full = f"{title or ''} {desc or ''}".lower().replace('.', '').replace(',', '')
+    m = re.search(r'đơn\s*(?:hàng)?\s*(?:từ|tối thiểu)\s*(\d+)\s*(k|đ|triệu|tr)?', full)
+    if m:
+        val = float(m.group(1))
+        u = m.group(2)
+        if u == 'k':
+            val *= 1000
+        elif u in ('triệu', 'tr'):
+            val *= 1000000
+        elif val < 1000 and u != 'đ':
+            val *= 1000
+        return val
+    return 0.0
 
 def fetch_accesstrade(db) -> tuple[int, Optional[str]]:
     """Lấy voucher từ AccessTrade API"""
@@ -190,9 +251,8 @@ def fetch_accesstrade(db) -> tuple[int, Optional[str]]:
 
 def fetch_whitelist(db) -> tuple[int, Optional[str]]:
     """
-    Thu thập voucher từ các trang web whitelist công khai.
-    Hiện tại chưa có trang whitelist cụ thể nào được cấu hình,
-    ghi log rõ ràng và bỏ qua bước này thay vì im lặng pass.
+    Thu thập voucher từ các trang web whitelist công khai (nguồn chính: iPrice.vn).
+    Chỉ lấy dữ liệu ưu đãi, tuyệt đối không lưu link affiliate/tracking của iPrice.
     """
     real_urls = [
         u for u in getattr(config, 'WHITELIST_URLS', [])
@@ -204,15 +264,140 @@ def fetch_whitelist(db) -> tuple[int, Optional[str]]:
         return 0, None
 
     total_inserted = 0
+    total_skipped = 0
     errors = []
+    now = datetime.now(timezone.utc)
+    yesterday = now - timedelta(days=1)
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
+    }
+
     for url in real_urls:
         try:
-            logger.info(f"Chưa cấu hình parser cho trang {url}, bỏ qua bước này")
+            logger.info(f"Đang thu thập từ trang whitelist: {url}")
+            res = requests.get(url, headers=headers, timeout=15)
+            res.raise_for_status()
+
+            soup = BeautifulSoup(res.text, 'html.parser')
+            items = soup.find_all(class_='rh_offer_list')
+
+            if not items:
+                logger.warning(f"Không tìm thấy thẻ ưu đãi (.rh_offer_list) trên trang: {url}")
+                continue
+
+            logger.info(f"Tìm thấy {len(items)} thẻ ưu đãi trên {url}. Bắt đầu bóc tách...")
+
+            for i, item in enumerate(items):
+                try:
+                    title_el = item.find('h2')
+                    title = title_el.get_text(strip=True) if title_el else ""
+                    if not title:
+                        continue
+
+                    tag_el = item.find(class_='sale_letter')
+                    tag = tag_el.get_text(strip=True) if tag_el else ""
+
+                    desc_el = item.find(class_='rh_gr_middle_desc')
+                    desc = desc_el.get_text(strip=True) if desc_el else ""
+
+                    time_el = item.find(class_='listtimeleft')
+                    time_str = time_el.get_text(strip=True) if time_el else ""
+
+                    # 1. Trích xuất mã code text (nếu có)
+                    coupon_btn = item.find(class_='coupon_btn')
+                    raw_code = None
+                    if coupon_btn and coupon_btn.has_attr('data-clipboard-text'):
+                        raw_code = coupon_btn['data-clipboard-text'].strip()
+
+                    is_coupon_code = bool(raw_code)
+                    if is_coupon_code:
+                        code = raw_code
+                        voucher_type = "code"
+                    else:
+                        # Sinh code định danh ổn định cho deal/deeplink
+                        slug_clean = re.sub(r'[^a-zA-Z0-9]+', '_', title).strip('_').upper()
+                        h = hashlib.md5(f"{title}_{tag}".encode()).hexdigest()[:6].upper()
+                        code = f"DEAL_{slug_clean[:18]}_{h}"
+                        voucher_type = "deeplink"
+
+                    merchant = "Shopee"
+
+                    # 2. Kiểm tra trùng lặp (Idempotency)
+                    if db is not None:
+                        exists_pending = db.pending_vouchers.find_one({
+                            "code": code,
+                            "merchant": merchant,
+                            "fetched_at": {"$gte": yesterday.isoformat()}
+                        })
+                        exists_live = db.live_vouchers.find_one({
+                            "code": code
+                        })
+                        if exists_pending or exists_live:
+                            total_skipped += 1
+                            continue
+
+                    # 3. Trích xuất và vệ sinh URL (Tuyệt đối không lưu link affiliate/tracking của iPrice)
+                    btn = item.find(class_='btn_offer_block')
+                    href = btn.get('href', '') if btn else ''
+                    parsed_qs = urllib.parse.parse_qs(urllib.parse.urlparse(href).query)
+                    target_url = parsed_qs.get('url', [''])[0]
+
+                    if not target_url or target_url.rstrip('/') == 'https://shopee.vn':
+                        # Fallback về trang Mã Giảm Giá chính thức của Shopee
+                        landing_url = "https://shopee.vn/m/ma-giam-gia"
+                    else:
+                        p_t = urllib.parse.urlparse(target_url)
+                        landing_url = f"{p_t.scheme}://{p_t.netloc}{p_t.path}"
+
+                    # Bảo vệ nhiều lớp chống rò rỉ domain hoặc tracking iPrice
+                    if any(bad in landing_url.lower() for bad in ["iprice", "grogu", "aff_", "utm_"]):
+                        landing_url = "https://shopee.vn/m/ma-giam-gia"
+
+                    dtype, dval, dmax = parse_discount(tag, title)
+                    min_order = parse_min_order(title, desc)
+                    valid_to = parse_expiry(time_str, now)
+
+                    doc = {
+                        "source": "iprice_vn",
+                        "merchant": merchant,
+                        "code": code,
+                        "title": title,
+                        "voucher_type": voucher_type,
+                        "discount_type": dtype,
+                        "discount_value": dval,
+                        "discount_max_value": dmax,
+                        "min_order_value": min_order,
+                        "valid_from": now.isoformat(),
+                        "valid_to": valid_to,
+                        "remain_count": None,
+                        "landing_url": landing_url,
+                        "raw_payload": {
+                            "title": title,
+                            "tag": tag,
+                            "time_str": time_str,
+                            "source_page": url
+                        },
+                        "fetched_at": now.isoformat(),
+                        "retry_count": 0
+                    }
+
+                    if db is not None:
+                        db.pending_vouchers.insert_one(doc)
+                    total_inserted += 1
+
+                except Exception as parse_err:
+                    logger.warning(f"Lỗi parse thẻ ưu đãi #{i+1}: {parse_err}")
+                    continue
+
         except Exception as e:
             err_msg = f"Lỗi cào whitelist {url}: {e}"
             logger.error(err_msg)
             errors.append(err_msg)
 
+    logger.info(f"[Whitelist iPrice] Thêm mới: {total_inserted} | Bỏ qua (trùng): {total_skipped}")
     combined_err = "; ".join(errors) if errors else None
     return total_inserted, combined_err
 

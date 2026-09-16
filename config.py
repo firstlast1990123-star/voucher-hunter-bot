@@ -15,10 +15,9 @@ HUNTER_INTERVAL = 30 * 60  # 30 phút cào 1 lần
 VALIDATOR_INTERVAL = 5 * 60  # 5 phút duyệt 1 lần
 VIP_EARLY_ACCESS_MINUTES = 15 # Thời gian VIP được xem/nhận thông báo trước
 
-# Danh sách các site whitelist để scraping (ví dụ minh hoạ)
+# Danh sách các site whitelist để scraping
 WHITELIST_URLS = [
-    "https://example-coupon-site.com/shopee-vouchers",
-    "https://another-promo-site.net/shopee"
+    "https://iprice.vn/coupons/shopee/"
 ]
 
 # Các từ khóa báo hiệu voucher lỗi/hết hạn trên landing page
