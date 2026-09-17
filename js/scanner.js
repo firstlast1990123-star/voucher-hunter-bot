@@ -33,13 +33,15 @@ async function scanShopeeLink() {
     inputEl.disabled = true;
     btnEl.disabled = true;
     
-    // Render Loading Skeleton với Logo Shopee
+    // Render Loading Skeleton với Icon Scanner trung lập
     resultContainer.innerHTML = `
         <div class="bg-white rounded-lg p-6 shadow border border-gray-200 mt-6 text-center animate-pulse">
-            <img src="${CONFIG.SHOPEE_LOGO_URL}" alt="Shopee Loading" class="w-20 h-20 mx-auto mb-4 object-contain rounded-full border-4 border-gray-100 shadow-sm" />
+            <div class="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-orange-100 text-orange-500 border-4 border-orange-200 shadow-sm text-3xl">
+                🔍
+            </div>
             <div class="h-4 bg-gray-200 rounded w-1/2 mx-auto mb-3"></div>
             <div class="h-3 bg-gray-200 rounded w-1/3 mx-auto"></div>
-            <p class="mt-4 text-orange-500 font-medium">Đang tìm mã giảm giá tốt nhất...</p>
+            <p class="mt-4 text-orange-500 font-medium">Đang đối chiếu và tìm mã giảm giá công khai...</p>
         </div>
     `;
 

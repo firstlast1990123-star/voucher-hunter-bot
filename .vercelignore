@@ -1,0 +1,13 @@
+.git
+.github
+.env*
+*.py
+__pycache__
+tests
+test_*.js
+_archive
+scratch
+ruff.toml
+requirements.txt
+.ruff_cache
+.venv

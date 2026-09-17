@@ -3,8 +3,9 @@ const CONFIG = {
     // Endpoint API tương đối (tự động theo domain hiện tại trên Netlify và Local)
     API_BASE_URL: '/api', 
     
-    // Logo Shopee làm ảnh loading
-    SHOPEE_LOGO_URL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Shopee.svg/2560px-Shopee.svg.png',
+    // Icon Voucher generic tự thiết kế (không dùng logo thương hiệu bất kỳ sàn TMĐT nào)
+    VOUCHER_ICON_URL: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23f97316"%3E%3Cpath d="M12.79 2.29A1 1 0 0 0 12.08 2H4a2 2 0 0 0-2 2v8.08a1 1 0 0 0 .29.71l9.42 9.42a1 1 0 0 0 1.41 0l7.59-7.59a1 1 0 0 0 0-1.41l-9.42-9.42zM5.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/%3E%3C/svg%3E',
+    SHOPEE_LOGO_URL: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23f97316"%3E%3Cpath d="M12.79 2.29A1 1 0 0 0 12.08 2H4a2 2 0 0 0-2 2v8.08a1 1 0 0 0 .29.71l9.42 9.42a1 1 0 0 0 1.41 0l7.59-7.59a1 1 0 0 0 0-1.41l-9.42-9.42zM5.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/%3E%3C/svg%3E',
     
     // FEATURE FLAG: Bật lại VIP Trial 2 tiếng do đã được quản lý an toàn tại Server (Single Source of Truth)
     VIP_TRIAL_ENABLED: true

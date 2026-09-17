@@ -62,7 +62,9 @@ function renderVoucherCard(v) {
         <div class="relative bg-white rounded-lg p-4 shadow flex flex-col h-full overflow-hidden border border-gray-200">
             <div class="opacity-30 blur-[3px] pointer-events-none flex flex-col h-full">
                 <div class="flex items-center mb-3">
-                    <img src="${CONFIG.SHOPEE_LOGO_URL}" class="w-10 h-10 object-contain p-1 border rounded mr-3 bg-gray-50" />
+                    <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-orange-50 text-orange-600 text-xl font-bold mr-3 border border-orange-200">
+                        🏷️
+                    </div>
                     <div>
                         <div class="font-bold text-gray-800">${v.merchant || 'Shopee'}</div>
                         <div class="text-sm text-gray-500 line-clamp-1">${v.title || 'Mã giảm giá'}</div>
@@ -137,7 +139,9 @@ function renderVoucherCard(v) {
     <div id="card-${v.code}" class="relative bg-white rounded-lg p-4 shadow flex flex-col h-full border border-gray-200 transition hover:shadow-lg">
         ${reportHtml}
         <div class="flex items-center mb-3 pr-20">
-            <img src="${CONFIG.SHOPEE_LOGO_URL}" class="w-10 h-10 object-contain p-1 border rounded mr-3 bg-gray-50" />
+            <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-orange-50 text-orange-600 text-xl font-bold mr-3 border border-orange-200">
+                🏷️
+            </div>
             <div>
                 <div class="font-bold text-gray-800">${v.merchant || 'Shopee'}</div>
                 <div class="text-sm text-gray-500 line-clamp-1">${v.title || 'Mã giảm giá'}</div>

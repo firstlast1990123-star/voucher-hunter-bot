@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voucher MyPro XMax</title>
+    <title>VoucherXMax - Công Cụ Tra Cứu Mã Giảm Giá Công Khai</title>
+    <!-- Favicon SVG tự thiết kế -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F97316'/%3E%3Cpath d='M15 6L10 17H16L14 26L23 14H16L19 6Z' fill='white'/%3E%3C/svg%3E">
     <!-- Tailwind CSS (CDN for demo) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -11,7 +13,7 @@
             theme: {
                 extend: {
                     colors: {
-                        shopee: '#ee4d2d',
+                        brand: '#f97316',
                     }
                 }
             }
@@ -25,7 +27,19 @@
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center py-4 border-b border-gray-100">
                 <div class="flex items-center gap-2">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Shopee.svg/2560px-Shopee.svg.png" class="h-8 w-8 object-contain" alt="Logo">
+                    <!-- VoucherXMax Logo Vector SVG độc quyền -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" class="h-8 w-8 flex-shrink-0" fill="none">
+                        <defs>
+                            <linearGradient id="vxmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#F97316"/>
+                                <stop offset="100%" stop-color="#EAB308"/>
+                            </linearGradient>
+                        </defs>
+                        <rect x="2" y="5" width="28" height="22" rx="5" fill="url(#vxmGrad)"/>
+                        <circle cx="2" cy="16" r="3.5" fill="#F9FAFB"/>
+                        <circle cx="30" cy="16" r="3.5" fill="#F9FAFB"/>
+                        <path d="M14 9L10 16H15L13 23L20 14H15L17 9Z" fill="white"/>
+                    </svg>
                     <h1 class="text-xl font-black text-orange-500 tracking-tight">VOUCHER<span class="text-gray-800">MAX</span></h1>
                     <div id="stats-badge" class="hidden ml-3 bg-green-50 text-green-700 px-2 py-0.5 rounded text-xs font-bold border border-green-200">
                         ✅ 94% mã dùng được
@@ -56,7 +70,7 @@
             <!-- Tabs -->
             <div class="flex space-x-8 mt-2">
                 <button id="tab-scanner" class="pb-3 text-sm font-bold border-b-2 transition-colors text-orange-500 border-orange-500">
-                    🔍 Tra Cứu Shopee
+                    🔍 Tra Cứu Voucher
                 </button>
                 <button id="tab-storage" class="pb-3 text-sm font-bold border-b-2 transition-colors text-gray-500 border-transparent hover:text-gray-700">
                     📦 Kho Của Tôi
@@ -73,17 +87,25 @@
              ============================================== -->
         <div id="view-scanner">
             
-            <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-8 text-white shadow-lg mb-8 text-center relative overflow-hidden">
+            <!-- Banner Tuyên Bố Miễn Trừ Trách Nhiệm (Legal Safe Harbor / Anti-Phishing) -->
+            <div class="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3.5 text-xs flex items-start gap-2.5 mb-6 shadow-sm">
+                <span class="text-base flex-shrink-0">ℹ️</span>
+                <div class="leading-relaxed">
+                    <strong>Thông báo độc lập & Miễn trừ trách nhiệm:</strong> VoucherXMax là công cụ hỗ trợ tổng hợp và đối chiếu các mã giảm giá được chia sẻ công khai trên Internet. VoucherXMax <strong>hoàn toàn độc lập, không trực thuộc, không phải là đại diện và không có bất kỳ liên kết chính thức nào với Shopee</strong> hoặc bất kỳ sàn thương mại điện tử nào khác. Mọi logo, nhãn hiệu và thương hiệu thuộc quyền sở hữu của các đơn vị tương ứng.
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl p-8 text-white shadow-lg mb-8 text-center relative overflow-hidden">
                 <!-- Background decoration -->
                 <div class="absolute top-0 right-0 opacity-10">
                     <svg width="200" height="200" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="currentColor"/></svg>
                 </div>
                 
                 <h2 class="text-2xl sm:text-3xl font-extrabold mb-3 relative z-10">Smart Scanner Siêu Tốc</h2>
-                <p class="text-orange-100 mb-6 relative z-10">Dán link sản phẩm Shopee, nhận ngay mã giảm giá tốt nhất.</p>
+                <p class="text-orange-100 mb-6 relative z-10">Dán liên kết sản phẩm sàn TMĐT, tự động tìm kiếm mã giảm giá công khai tốt nhất.</p>
                 
                 <div class="flex flex-col sm:flex-row gap-3 relative z-10">
-                    <input type="text" id="scanner-input" placeholder="https://shopee.vn/..." 
+                    <input type="text" id="scanner-input" placeholder="Dán link sản phẩm (ví dụ: https://shopee.vn/...)" 
                            class="flex-grow px-4 py-3 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400 shadow-inner">
                     <button id="btn-scan" onclick="scanShopeeLink()" 
                             class="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold px-8 py-3 rounded-lg transition shadow-md whitespace-nowrap">
@@ -156,14 +178,19 @@
 
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-200 mt-12 py-8">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div class="text-gray-500 text-sm">
-                &copy; 2026 Voucher MyPro XMax. All rights reserved.
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="text-gray-500 text-sm font-medium">
+                    &copy; 2026 VoucherXMax. Công cụ hỗ trợ tra cứu mã giảm giá công khai.
+                </div>
+                <div class="flex gap-4 text-sm font-medium">
+                    <a href="privacy-policy.html" target="_blank" class="text-gray-500 hover:text-orange-500 transition">Chính sách bảo mật</a>
+                    <a href="terms-of-service.html" target="_blank" class="text-gray-500 hover:text-orange-500 transition">Điều khoản sử dụng</a>
+                </div>
             </div>
-            <div class="flex gap-4 text-sm font-medium">
-                <a href="privacy-policy.html" target="_blank" class="text-gray-500 hover:text-orange-500 transition">Chính sách bảo mật</a>
-                <a href="terms-of-service.html" target="_blank" class="text-gray-500 hover:text-orange-500 transition">Điều khoản sử dụng</a>
-            </div>
+            <p class="text-gray-400 text-xs text-center md:text-left leading-relaxed">
+                <strong>Miễn trừ trách nhiệm:</strong> VoucherXMax là nền tảng độc lập, tổng hợp các mã giảm giá được chia sẻ công khai. VoucherXMax không trực thuộc, không đại diện và không có liên kết chính thức với Shopee hay bất kỳ sàn thương mại điện tử nào.
+            </p>
         </div>
     </footer>
 
@@ -173,6 +200,17 @@
             <!-- Nút đóng -->
             <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none">&times;</button>
             
+            <!-- Nhận diện thương hiệu rõ ràng cho form tài khoản -->
+            <div class="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+                <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-lg">
+                    ⚡
+                </div>
+                <div>
+                    <div class="font-extrabold text-gray-800 text-base">Tài Khoản VoucherXMax</div>
+                    <div class="text-xs text-gray-400">Đăng nhập để quản lý kho voucher và quyền lợi VIP</div>
+                </div>
+            </div>
+
             <!-- Tab Switcher -->
             <div class="flex border-b border-gray-200 mb-6">
                 <button id="auth-tab-login" onclick="switchAuthTab('login')" class="flex-1 pb-3 text-center font-bold text-sm border-b-2 border-orange-500 text-orange-500 transition">
@@ -195,12 +233,12 @@
                         <label class="block text-sm font-semibold text-gray-700">Mật khẩu</label>
                         <a href="javascript:void(0)" onclick="openForgotPasswordModal()" class="text-xs text-orange-500 hover:underline">Quên mật khẩu?</a>
                     </div>
-                    <input type="password" id="login-password" required placeholder="Nhập mật khẩu" 
+                    <input type="password" id="login-password" required placeholder="Nhập mật khẩu tài khoản VoucherXMax" 
                            class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
                 </div>
                 <div id="login-error" class="hidden text-red-500 text-xs font-medium"></div>
                 <button type="submit" id="btn-submit-login" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-4 rounded-lg shadow transition">
-                    Đăng nhập
+                    Đăng nhập VoucherXMax
                 </button>
                 <div class="text-center text-xs text-gray-500 mt-2">
                     Chưa có tài khoản? <a href="javascript:void(0)" onclick="switchAuthTab('register')" class="text-orange-500 font-bold hover:underline">Đăng ký nhận 2h VIP miễn phí</a>
@@ -233,7 +271,7 @@
                 
                 <div id="reg-error" class="hidden text-red-500 text-xs font-medium"></div>
                 <button type="submit" id="btn-submit-reg" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-4 rounded-lg shadow transition">
-                    Đăng ký & Kích hoạt 2h VIP
+                    Đăng ký Tài Khoản VoucherXMax
                 </button>
                 <div class="text-center text-xs text-gray-500 mt-2">
                     Đã có tài khoản? <a href="javascript:void(0)" onclick="switchAuthTab('login')" class="text-orange-500 font-bold hover:underline">Đăng nhập ngay</a>

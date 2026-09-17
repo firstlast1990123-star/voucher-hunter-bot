@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chính Sách Bảo Mật | Voucher MyPro XMax</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23f97316'><path d='M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z'/></svg>">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        shopee: '#ee4d2d',
+                        brand: '#f97316',
                     }
                 }
             }
@@ -22,7 +23,11 @@
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center py-4 border-b border-gray-100">
                 <a href="index.html" class="flex items-center gap-2">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Shopee.svg/2560px-Shopee.svg.png" class="h-8 w-8 object-contain" alt="Logo">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path>
+                        </svg>
+                    </div>
                     <h1 class="text-xl font-black text-orange-500 tracking-tight">VOUCHER<span class="text-gray-800">MAX</span></h1>
                 </a>
             </div>
@@ -33,13 +38,13 @@
         <h1 class="text-3xl font-extrabold text-gray-900 mb-6 border-b pb-4">Chính Sách Bảo Mật</h1>
         
         <div class="prose prose-orange max-w-none text-gray-700 space-y-6">
-            <p>Voucher MyPro XMax tôn trọng quyền riêng tư của bạn. Chính sách bảo mật này giải thích cách chúng tôi thu thập, sử dụng và bảo vệ thông tin cá nhân của bạn khi sử dụng hệ thống.</p>
+            <p>VoucherXMax tôn trọng quyền riêng tư của bạn. Chính sách bảo mật này giải thích cách chúng tôi thu thập, sử dụng và bảo vệ thông tin cá nhân của bạn khi sử dụng hệ thống.</p>
             
             <h2 class="text-xl font-bold text-gray-800">1. Dữ liệu thu thập</h2>
             <ul class="list-disc pl-5 space-y-1">
-                <li>Thông tin tài khoản: Email, mật khẩu (đã được mã hóa/hash một chiều).</li>
+                <li>Thông tin tài khoản: Email, mật khẩu (đã được mã hóa/hash một chiều bcrypt).</li>
                 <li>Dữ liệu hệ thống: Lịch sử mã giảm giá (voucher) đã lưu, lịch sử liên kết Telegram (chat_id).</li>
-                <li>Thông tin thanh toán: Lịch sử đơn hàng nâng cấp VIP. <strong>Lưu ý:</strong> Chúng tôi không lưu trữ trực tiếp thông tin thẻ hay tài khoản ngân hàng của bạn. Việc thanh toán được xử lý bảo mật qua PayOS.</li>
+                <li>Thông tin thanh toán: Lịch sử đơn hàng nâng cấp VIP. <strong>Lưu ý:</strong> Chúng tôi không lưu trữ trực tiếp thông tin thẻ hay tài khoản ngân hàng của bạn. Việc thanh toán được xử lý bảo mật qua cổng đối tác PayOS.</li>
             </ul>
 
             <h2 class="text-xl font-bold text-gray-800">2. Mục đích thu thập</h2>
@@ -54,7 +59,7 @@
             <ul class="list-disc pl-5 space-y-1">
                 <li><strong>PayOS:</strong> Xử lý và xác nhận các giao dịch thanh toán nâng cấp VIP.</li>
                 <li><strong>AccessTrade:</strong> Dùng để theo dõi (tracking) lượt nhấp và chuyển đổi affiliate (nếu có).</li>
-                <li><strong>MongoDB Atlas / Railway:</strong> Dịch vụ lưu trữ cơ sở dữ liệu và vận hành server (Dữ liệu được lưu trữ an toàn trên đám mây).</li>
+                <li><strong>MongoDB Atlas / Vercel:</strong> Dịch vụ lưu trữ cơ sở dữ liệu và vận hành hệ thống máy chủ an toàn trên đám mây.</li>
             </ul>
 
             <h2 class="text-xl font-bold text-gray-800">4. Thời gian lưu trữ dữ liệu</h2>
@@ -69,15 +74,23 @@
             </ul>
             <p>Bạn có thể thực hiện các quyền này trực tiếp tại mục <strong>Quyền riêng tư của tôi</strong> trong phần quản lý tài khoản.</p>
 
-            <h2 class="text-xl font-bold text-gray-800">6. Liên hệ</h2>
+            <h2 class="text-xl font-bold text-gray-800">6. Tuyên bố độc lập thương hiệu</h2>
+            <div class="p-4 bg-orange-50 border border-orange-200 rounded-lg text-sm text-gray-700 space-y-2">
+                <p><strong>VoucherXMax (voucherxmax.vercel.app)</strong> là nền tảng tiện ích độc lập tổng hợp mã giảm giá công khai. Chúng tôi <strong>không thuộc quyền sở hữu, không mạo danh, không đại diện và không có liên kết chính thức với Shopee</strong> hay bất kỳ sàn thương mại điện tử nào.</p>
+                <p>Mọi nhãn hiệu, tên gọi của các sàn mua sắm được nhắc đến chỉ nhằm mục đích định danh nguồn áp dụng mã giảm giá theo quy định về sử dụng hợp lý (nominative fair use).</p>
+            </div>
+
+            <h2 class="text-xl font-bold text-gray-800">7. Liên hệ</h2>
             <p>Nếu bạn có bất kỳ câu hỏi nào về chính sách này hoặc muốn thực hiện quyền dữ liệu, vui lòng liên hệ với chúng tôi qua email: <a href="mailto:privacy@vouchermypro.vn" class="text-orange-500 hover:underline">privacy@vouchermypro.vn</a>.</p>
         </div>
     </main>
 
-    <footer class="text-center py-6 text-gray-500 text-sm mt-8 border-t border-gray-200">
-        &copy; 2026 Voucher MyPro XMax. <br class="sm:hidden"> 
-        <a href="privacy-policy.html" class="hover:text-orange-500 underline ml-2">Chính sách bảo mật</a> | 
-        <a href="terms-of-service.html" class="hover:text-orange-500 underline ml-2">Điều khoản sử dụng</a>
+    <footer class="text-center py-6 text-gray-500 text-xs mt-8 border-t border-gray-200 space-y-2">
+        <p>&copy; 2026 VoucherXMax. Nền tảng độc lập tổng hợp ưu đãi mua sắm trực tuyến.</p>
+        <p>
+            <a href="privacy-policy.html" class="hover:text-orange-500 underline">Chính sách bảo mật</a> | 
+            <a href="terms-of-service.html" class="hover:text-orange-500 underline ml-2">Điều khoản sử dụng</a>
+        </p>
     </footer>
 </body>
 </html>
