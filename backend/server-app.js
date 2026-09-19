@@ -20,7 +20,7 @@ const { globalLimiter } = require('./rateLimiter');
 
 const app = express();
 
-// Tin tưởng proxy (chuẩn triển khai production/Netlify để nhận diện đúng IP client)
+// Tin tưởng proxy (chuẩn triển khai production/Vercel để nhận diện đúng IP client)
 app.set('trust proxy', 1);
 
 const { parseRequestBody } = require('./validationUtils');
@@ -59,7 +59,6 @@ const healthHandler = (req, res) => {
 };
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
-app.get('/.netlify/functions/api/health', healthHandler);
 
 // Tạo Router tập trung cho toàn bộ API routes
 const apiRouter = express.Router();
@@ -83,9 +82,8 @@ app.get(['/admin', '/admin.html'], (req, res) => {
     res.sendFile(path.join(__dirname, '../admin.html'));
 });
 
-// Mount apiRouter trên '/api' (local/rewrite), '/.netlify/functions/api' (Netlify) và root path (Vercel)
+// Mount apiRouter trên '/api' (local/rewrite) và root path (Vercel serverless)
 app.use('/api', apiRouter);
-app.use('/.netlify/functions/api', apiRouter);
 app.use(apiRouter);
 
 // Fallback 404 handler
