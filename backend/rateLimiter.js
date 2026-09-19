@@ -77,6 +77,13 @@ const accountDeletionLimiter = createLimiter(
     'Bạn đã thao tác yêu cầu xóa tài khoản quá nhiều lần. Vui lòng thử lại sau 15 phút.'
 );
 
+// 9. /api/admin/*: 100 lần / 15 phút theo IP
+const adminLimiter = createLimiter(
+    15 * 60 * 1000,
+    100,
+    'Bạn đã gửi quá nhiều yêu cầu quản trị. Vui lòng thử lại sau 15 phút.'
+);
+
 module.exports = {
     globalLimiter,
     loginLimiter,
@@ -86,5 +93,6 @@ module.exports = {
     forgotPasswordLimiter,
     changePasswordLimiter,
     accountDeletionLimiter,
+    adminLimiter,
     createLimiter
 };

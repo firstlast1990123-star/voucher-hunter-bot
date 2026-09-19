@@ -13,6 +13,7 @@ const scanRoutes = require('./routes/scan');
 const userRoutes = require('./routes/user');
 const savingsReportRoutes = require('./routes/savingsReport');
 const statsRoutes = require('./routes/stats');
+const adminRoutes = require('./routes/admin');
 
 // Import rate limiters
 const { globalLimiter } = require('./rateLimiter');
@@ -75,6 +76,12 @@ apiRouter.use('/scan', scanRoutes);
 apiRouter.use('/user', userRoutes);
 apiRouter.use('/user', savingsReportRoutes);
 apiRouter.use('/stats', statsRoutes);
+apiRouter.use('/admin', adminRoutes);
+
+// Phục vụ admin.html khi chạy server local
+app.get(['/admin', '/admin.html'], (req, res) => {
+    res.sendFile(path.join(__dirname, '../admin.html'));
+});
 
 // Mount apiRouter trên '/api' (local/rewrite), '/.netlify/functions/api' (Netlify) và root path (Vercel)
 app.use('/api', apiRouter);

@@ -124,8 +124,44 @@ async function optionalAuthenticateToken(req, res, next) {
 // Giữ alias checkMembership để tương thích ngược, nội bộ dùng authenticateToken
 const checkMembership = authenticateToken;
 
+/**
+ * Lấy danh sách email quản trị viên từ biến môi trường ADMIN_EMAILS
+ */
+function getAdminEmails() {
+    const raw = process.env.ADMIN_EMAILS || '';
+    return raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+}
+
+/**
+ * Middleware phân quyền Admin (Server-side validation)
+ * Yêu cầu user đã được xác thực qua authenticateToken
+ * Tra cứu email và đối chiếu với ADMIN_EMAILS
+ */
+function requireAdmin(req, res, next) {
+    if (!req.user || !req.user.email) {
+        return res.status(401).json({
+            error: 'UNAUTHORIZED',
+            message: 'Vui lòng đăng nhập để thực hiện thao tác này.'
+        });
+    }
+
+    const adminEmails = getAdminEmails();
+    const userEmail = req.user.email.trim().toLowerCase();
+
+    if (!adminEmails.includes(userEmail)) {
+        return res.status(403).json({
+            error: 'FORBIDDEN',
+            message: 'Truy cập bị từ chối. Khu vực này chỉ dành riêng cho Quản trị viên hệ thống.'
+        });
+    }
+
+    next();
+}
+
 module.exports = {
     authenticateToken,
     optionalAuthenticateToken,
-    checkMembership
+    checkMembership,
+    requireAdmin,
+    getAdminEmails
 };

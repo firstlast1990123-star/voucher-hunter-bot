@@ -62,6 +62,9 @@
                     <button id="btn-header-change-pass" onclick="openChangePasswordModal()" class="hidden text-xs text-gray-500 hover:text-orange-500 font-medium px-2 py-1 transition" title="Đổi mật khẩu">
                         🔒 Đổi MK
                     </button>
+                    <a id="btn-header-admin" href="/admin" class="hidden text-xs bg-red-50 hover:bg-red-100 text-red-700 font-bold px-2.5 py-1 rounded-full border border-red-200 transition flex items-center gap-1" title="Trang Quản Trị">
+                        🛡️ Admin
+                    </a>
                     <button id="btn-logout" onclick="logoutUser()" class="hidden text-xs text-gray-400 hover:text-red-500 font-medium px-2 py-1 transition" title="Đăng xuất">
                         Đăng xuất
                     </button>
@@ -622,6 +625,25 @@
                         btnHeaderVip.innerHTML = '⭐ Nâng cấp VIP';
                     }
                 }
+
+                const btnAdmin = document.getElementById('btn-header-admin');
+                if (btnAdmin) {
+                    const token = localStorage.getItem('token');
+                    if (token) {
+                        fetch('/api/admin/check', { headers: { 'Authorization': `Bearer ${token}` } })
+                            .then(res => res.ok ? res.json() : null)
+                            .then(data => {
+                                if (data && data.success) {
+                                    btnAdmin.classList.remove('hidden');
+                                } else {
+                                    btnAdmin.classList.add('hidden');
+                                }
+                            })
+                            .catch(() => btnAdmin.classList.add('hidden'));
+                    } else {
+                        btnAdmin.classList.add('hidden');
+                    }
+                }
             } else {
                 if (btnOpenAuth) btnOpenAuth.classList.remove('hidden');
                 if (profileBadge) profileBadge.classList.add('hidden');
@@ -629,6 +651,8 @@
                 if (btnChangePass) btnChangePass.classList.add('hidden');
                 if (btnHeaderVip) btnHeaderVip.classList.add('hidden');
                 if (expiryDisplay) expiryDisplay.classList.add('hidden');
+                const btnAdmin = document.getElementById('btn-header-admin');
+                if (btnAdmin) btnAdmin.classList.add('hidden');
             }
         }
 

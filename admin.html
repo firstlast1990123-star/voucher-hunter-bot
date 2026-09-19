@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang Quản Trị - VoucherXMax</title>
+    <!-- Favicon SVG tự thiết kế -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F97316'/%3E%3Cpath d='M15 6L10 17H16L14 26L23 14H16L19 6Z' fill='white'/%3E%3C/svg%3E">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#f97316',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [v-cloak] { display: none; }
+        .tab-btn.active {
+            border-bottom: 2px solid #f97316;
+            color: #f97316;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen">
+
+    <!-- LỚP BẢO VỆ XÁC THỰC ZERO-FLASH (Hiển thị đầu tiên, ẩn toàn bộ admin cho đến khi API xác nhận) -->
+    <div id="auth-guard" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-4">
+        <div class="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-gray-800 mb-2">Đang kiểm tra quyền Quản trị viên...</h2>
+        <p class="text-sm text-gray-500 text-center max-w-sm" id="auth-guard-msg">Hệ thống đang xác thực danh tính tài khoản bảo mật hai lớp.</p>
+    </div>
+
+    <!-- NỘI DUNG CHÍNH (Chỉ hiển thị khi đã pass requireAdmin từ server) -->
+    <div id="admin-app" class="hidden flex flex-col min-h-screen">
+        
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <!-- Brand -->
+                    <div class="flex items-center gap-3">
+                        <a href="/" class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" class="h-8 w-8 flex-shrink-0" fill="none">
+                                <defs>
+                                    <linearGradient id="vxmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#F97316"/>
+                                        <stop offset="100%" stop-color="#EAB308"/>
+                                    </linearGradient>
+                                </defs>
+                                <rect x="2" y="5" width="28" height="22" rx="5" fill="url(#vxmGrad)"/>
+                                <circle cx="2" cy="16" r="3.5" fill="#F9FAFB"/>
+                                <circle cx="30" cy="16" r="3.5" fill="#F9FAFB"/>
+                                <path d="M14 9L10 16H15L13 23L20 14H15L17 9Z" fill="white"/>
+                            </svg>
+                            <span class="text-xl font-black text-orange-500 tracking-tight">VOUCHER<span class="text-gray-800">MAX</span></span>
+                        </a>
+                        <span class="bg-red-100 text-red-700 text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-wider border border-red-200">
+                            🛡️ ADMIN PORTAL
+                        </span>
+                    </div>
+
+                    <!-- User & Logout -->
+                    <div class="flex items-center gap-4">
+                        <div class="text-right hidden sm:block">
+                            <div class="text-xs text-gray-400 font-medium">Đang đăng nhập với tư cách:</div>
+                            <div id="admin-email-display" class="text-sm font-bold text-gray-700">admin@...</div>
+                        </div>
+                        <a href="/" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs sm:text-sm font-semibold py-2 px-3.5 rounded-lg transition">
+                            🏠 Về Trang Chủ
+                        </a>
+                        <button onclick="logoutAdmin()" class="bg-red-50 hover:bg-red-100 text-red-600 text-xs sm:text-sm font-semibold py-2 px-3 rounded-lg transition border border-red-200">
+                            🚪 Đăng Xuất
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <div class="flex space-x-8 border-t border-gray-100">
+                    <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn active py-3.5 px-1 text-sm font-semibold border-b-2 border-transparent hover:text-orange-500 transition flex items-center gap-2">
+                        📊 Giám Sát & Thống Kê
+                    </button>
+                    <button onclick="switchTab('vouchers')" id="tab-vouchers" class="tab-btn py-3.5 px-1 text-sm font-semibold text-gray-500 border-b-2 border-transparent hover:text-orange-500 transition flex items-center gap-2">
+                        🎟️ Quản Lý Voucher
+                    </button>
+                    <button onclick="switchTab('users')" id="tab-users" class="tab-btn py-3.5 px-1 text-sm font-semibold text-gray-500 border-b-2 border-transparent hover:text-orange-500 transition flex items-center gap-2">
+                        👥 Người Dùng & Cấp VIP
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+
+            <!-- ========================================================================= -->
+            <!-- TAB 1: GIÁM SÁT & THỐNG KÊ (DASHBOARD) -->
+            <!-- ========================================================================= -->
+            <section id="view-dashboard" class="space-y-8">
+                <!-- Thống kê thẻ số liệu -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="text-xs font-semibold text-gray-500 mb-1">Voucher Hoạt Động (Live)</div>
+                        <div id="stat-live-vouchers" class="text-2xl font-black text-green-600">--</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="text-xs font-semibold text-gray-500 mb-1">Voucher Chờ Duyệt (Pending)</div>
+                        <div id="stat-pending-vouchers" class="text-2xl font-black text-amber-600">--</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="text-xs font-semibold text-gray-500 mb-1">Tổng Người Dùng</div>
+                        <div id="stat-total-users" class="text-2xl font-black text-blue-600">--</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="text-xs font-semibold text-gray-500 mb-1">Thành Viên VIP</div>
+                        <div id="stat-vip-users" class="text-2xl font-black text-purple-600">--</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm col-span-2 md:col-span-1">
+                        <div class="text-xs font-semibold text-gray-500 mb-1">Đơn VIP Đã Trả (7 ngày)</div>
+                        <div id="stat-paid-orders-7d" class="text-2xl font-black text-orange-500">--</div>
+                    </div>
+                </div>
+
+                <!-- Tình trạng sức khỏe Bot (Bot Health) -->
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            <span>🤖</span> Tình Trạng Hoạt Động Của Các Bot Tự Động
+                        </h2>
+                        <button onclick="loadDashboard()" class="text-xs text-orange-500 hover:text-orange-600 font-semibold flex items-center gap-1">
+                            🔄 Làm mới
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="bot-health-cards">
+                        <!-- Hunter Bot Card -->
+                        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3" id="card-hunter-bot">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-gray-800 text-base">🏹 Hunter Bot</span>
+                                <span id="status-hunter-bot" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600">Đang tải...</span>
+                            </div>
+                            <div class="text-xs text-gray-500 space-y-1">
+                                <div>Heartbeat cuối: <span id="hb-hunter-bot" class="font-medium text-gray-700">--</span></div>
+                                <div>Kết quả chu kỳ: <span id="result-hunter-bot" class="font-medium text-gray-700">--</span></div>
+                                <div>Mã thêm mới gần nhất: <span id="inserted-hunter-bot" class="font-medium text-gray-700">--</span></div>
+                            </div>
+                            <div id="err-hunter-bot" class="hidden p-2.5 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200 break-words"></div>
+                        </div>
+
+                        <!-- Validator Bot Card -->
+                        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3" id="card-validator-bot">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-gray-800 text-base">🛡️ Validator Bot</span>
+                                <span id="status-validator-bot" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600">Đang tải...</span>
+                            </div>
+                            <div class="text-xs text-gray-500 space-y-1">
+                                <div>Heartbeat cuối: <span id="hb-validator-bot" class="font-medium text-gray-700">--</span></div>
+                                <div>Kết quả chu kỳ: <span id="result-validator-bot" class="font-medium text-gray-700">--</span></div>
+                            </div>
+                            <div id="err-validator-bot" class="hidden p-2.5 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200 break-words"></div>
+                        </div>
+
+                        <!-- Telegram Notifier Card -->
+                        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3" id="card-telegram-bot">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-gray-800 text-base">📬 Telegram Notifier</span>
+                                <span id="status-telegram-bot" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600">Đang tải...</span>
+                            </div>
+                            <div class="text-xs text-gray-500 space-y-1">
+                                <div>Heartbeat cuối: <span id="hb-telegram-bot" class="font-medium text-gray-700">--</span></div>
+                                <div>Kết quả chu kỳ: <span id="result-telegram-bot" class="font-medium text-gray-700">--</span></div>
+                            </div>
+                            <div id="err-telegram-bot" class="hidden p-2.5 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200 break-words"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 2: QUẢN LÝ VOUCHER -->
+            <!-- ========================================================================= -->
+            <section id="view-vouchers" class="hidden space-y-6">
+                <!-- Thanh công cụ điều khiển -->
+                <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+                    <!-- Sub-tabs: Live vs Pending -->
+                    <div class="flex bg-gray-100 p-1 rounded-lg w-full md:w-auto">
+                        <button onclick="setVoucherType('live')" id="subtab-live" class="flex-1 md:flex-none px-4 py-1.5 rounded-md text-xs font-bold bg-white text-orange-600 shadow-sm transition">
+                            🟢 Đang Hoạt Động (<span id="count-subtab-live">0</span>)
+                        </button>
+                        <button onclick="setVoucherType('pending')" id="subtab-pending" class="flex-1 md:flex-none px-4 py-1.5 rounded-md text-xs font-bold text-gray-600 hover:text-orange-500 transition">
+                            ⏳ Chờ Duyệt (<span id="count-subtab-pending">0</span>)
+                        </button>
+                    </div>
+
+                    <!-- Search & Action -->
+                    <div class="flex items-center gap-3 w-full md:w-auto">
+                        <div class="relative flex-1 md:w-64">
+                            <input type="text" id="voucher-search-input" placeholder="Tìm theo mã, shop, tên..." 
+                                   onkeyup="if(event.key === 'Enter') searchVouchers()"
+                                   class="w-full pl-8 pr-4 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <span class="absolute left-2.5 top-2 text-gray-400 text-xs">🔍</span>
+                        </div>
+                        <button onclick="searchVouchers()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs py-1.5 px-3 rounded-lg border transition">
+                            Tìm
+                        </button>
+                        <button onclick="openAddVoucherModal()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs py-1.5 px-3.5 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
+                            ➕ Thêm Mã Tay
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bảng danh sách voucher -->
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-xs text-left">
+                            <thead class="bg-gray-50 text-gray-500 font-semibold">
+                                <tr>
+                                    <th class="px-4 py-3">Sàn / Shop</th>
+                                    <th class="px-4 py-3">Mã / Loại</th>
+                                    <th class="px-4 py-3">Ưu Đãi</th>
+                                    <th class="px-4 py-3">Đơn Tối Thiểu</th>
+                                    <th class="px-4 py-3">Hạn Dùng (HSD)</th>
+                                    <th class="px-4 py-3">Nguồn</th>
+                                    <th class="px-4 py-3 text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vouchers-tbody" class="divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="7" class="px-4 py-8 text-center text-gray-400">Đang tải danh sách voucher...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Phân trang -->
+                    <div class="p-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500" id="voucher-pagination">
+                        <div>Hiển thị <span id="v-page-current">1</span> / <span id="v-page-total">1</span> trang</div>
+                        <div class="flex gap-2">
+                            <button onclick="prevVoucherPage()" id="btn-v-prev" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded font-semibold disabled:opacity-50">Trước</button>
+                            <button onclick="nextVoucherPage()" id="btn-v-next" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded font-semibold disabled:opacity-50">Sau</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 3: QUẢN LÝ USER & CẤP VIP THỦ CÔNG -->
+            <!-- ========================================================================= -->
+            <section id="view-users" class="hidden space-y-8">
+                <!-- Tra Cứu & Cấp VIP Thủ Công (Khối Quan Trọng Nhất) -->
+                <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-6">
+                    <div>
+                        <h2 class="text-base font-bold text-gray-800 flex items-center gap-2">
+                            <span>⭐</span> Tra Cứu Tài Khoản & Cấp VIP Thủ Công (Xử lý khiếu nại)
+                        </h2>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Tra cứu email user để đối chiếu lịch sử đơn hàng với PayOS Dashboard trước khi quyết định cấp VIP. Bắt buộc ghi rõ lý do.
+                        </p>
+                    </div>
+
+                    <!-- Ô tra cứu email -->
+                    <div class="flex flex-col sm:flex-row gap-3 max-w-xl">
+                        <input type="email" id="user-lookup-email" placeholder="Nhập chính xác email người dùng (VD: user@example.com)..." 
+                               onkeyup="if(event.key === 'Enter') lookupUser()"
+                               class="flex-1 px-4 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        <button onclick="lookupUser()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm py-2 px-5 rounded-lg shadow-sm transition">
+                            Tra Cứu User
+                        </button>
+                    </div>
+
+                    <!-- Kết quả tra cứu chi tiết -->
+                    <div id="user-lookup-result" class="hidden space-y-6 pt-4 border-t border-gray-100">
+                        <!-- Thông tin tóm tắt user -->
+                        <div class="bg-orange-50/60 border border-orange-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between gap-4">
+                            <div class="space-y-1 text-xs text-gray-600">
+                                <div><strong>Email:</strong> <span id="u-detail-email" class="text-gray-900 font-bold"></span></div>
+                                <div><strong>User ID:</strong> <span id="u-detail-id" class="font-mono text-gray-500"></span></div>
+                                <div><strong>Ngày tạo tài khoản:</strong> <span id="u-detail-created"></span></div>
+                                <div id="u-detail-deletion-box" class="hidden text-red-600 font-semibold">⚠️ Đang trong thời gian chờ xóa tài khoản theo Nghị định 13!</div>
+                            </div>
+                            <div class="text-left sm:text-right space-y-1 text-xs">
+                                <div>Hạng thành viên: <span id="u-detail-membership" class="font-black px-2 py-0.5 rounded text-white bg-gray-500">FREE</span></div>
+                                <div>Gói đang dùng: <span id="u-detail-plan" class="font-semibold text-gray-800">Không có</span></div>
+                                <div>Hạn dùng VIP: <span id="u-detail-expiry" class="font-semibold text-gray-800">Hết hạn</span></div>
+                            </div>
+                        </div>
+
+                        <!-- Lịch sử Đơn hàng (payment_orders) để đối chiếu PayOS -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                    📋 Lịch Sử Đơn Hàng Của User (Đối Chiếu PayOS)
+                                </h3>
+                                <span class="text-[11px] text-gray-400">Chỉ cấp khi mã GD khớp trên PayOS thật</span>
+                            </div>
+                            <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                                <table class="min-w-full divide-y divide-gray-200 text-xs text-left">
+                                    <thead class="bg-gray-50 text-gray-500 font-semibold">
+                                        <tr>
+                                            <th class="px-3 py-2">Mã Đơn (OrderCode)</th>
+                                            <th class="px-3 py-2">Gói VIP</th>
+                                            <th class="px-3 py-2">Số Tiền</th>
+                                            <th class="px-3 py-2">Trạng Thái</th>
+                                            <th class="px-3 py-2">Thời Gian Tạo</th>
+                                            <th class="px-3 py-2">Thời Gian Thanh Toán</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="user-orders-tbody" class="divide-y divide-gray-200">
+                                        <tr><td colspan="6" class="px-3 py-4 text-center text-gray-400">Không có đơn hàng nào</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Form Cấp VIP Thủ Công -->
+                        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
+                            <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                ⚡ Thực Hiện Cấp VIP Thủ Công Cho User Này
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-700 mb-1">Chọn gói cấp VIP</label>
+                                    <select id="grant-plan-select" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-orange-500">
+                                        <option value="vip_weekly">Gói Tuần (7 ngày)</option>
+                                        <option value="vip_monthly">Gói Tháng (30 ngày)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-700 mb-1">
+                                        Lý do cấp (BẮT BUỘC - tối thiểu 5 ký tự) <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" id="grant-reason-input" placeholder="VD: Đã xác minh ảnh CK khớp mã GD PayOS #123456" 
+                                           class="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-500">
+                                </div>
+                            </div>
+                            <div class="flex justify-end">
+                                <button onclick="submitGrantVip()" id="btn-submit-grant" class="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs py-2 px-5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                    ⭐ Xác Nhận Cấp VIP & Lưu Audit Log
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Lịch sử các lần cấp VIP thủ công trước đó (Audit Log) -->
+                        <div>
+                            <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                                📜 Lịch Sử Cấp VIP Thủ Công Của User Này (Audit Trail)
+                            </h3>
+                            <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                                <table class="min-w-full divide-y divide-gray-200 text-xs text-left">
+                                    <thead class="bg-gray-50 text-gray-500 font-semibold">
+                                        <tr>
+                                            <th class="px-3 py-2">Thời Gian Cấp</th>
+                                            <th class="px-3 py-2">Gói</th>
+                                            <th class="px-3 py-2">Lý Do Xác Minh</th>
+                                            <th class="px-3 py-2">Admin Thực Hiện</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="user-grants-tbody" class="divide-y divide-gray-200">
+                                        <tr><td colspan="4" class="px-3 py-4 text-center text-gray-400">Chưa từng cấp thủ công trước đây</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Danh Sách Người Dùng Gần Đây (Tổng Thể) -->
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-gray-800">Danh Sách Người Dùng Hệ Thống</h3>
+                        <button onclick="loadUsersList()" class="text-xs text-orange-500 hover:text-orange-600 font-semibold">🔄 Làm mới</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-xs text-left">
+                            <thead class="bg-gray-50 text-gray-500 font-semibold">
+                                <tr>
+                                    <th class="px-4 py-3">Email</th>
+                                    <th class="px-4 py-3">Hạng (Membership)</th>
+                                    <th class="px-4 py-3">Gói Hiện Tại</th>
+                                    <th class="px-4 py-3">Hạn Dùng VIP</th>
+                                    <th class="px-4 py-3">Ngày Đăng Ký</th>
+                                    <th class="px-4 py-3 text-right">Chi Tiết</th>
+                                </tr>
+                            </thead>
+                            <tbody id="all-users-tbody" class="divide-y divide-gray-200">
+                                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Đang tải danh sách người dùng...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Phân trang user -->
+                    <div class="p-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+                        <div>Hiển thị <span id="u-page-current">1</span> / <span id="u-page-total">1</span> trang</div>
+                        <div class="flex gap-2">
+                            <button onclick="prevUserPage()" id="btn-u-prev" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded font-semibold disabled:opacity-50">Trước</button>
+                            <button onclick="nextUserPage()" id="btn-u-next" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded font-semibold disabled:opacity-50">Sau</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL: THÊM / SỬA VOUCHER THỦ CÔNG -->
+    <!-- ========================================================================= -->
+    <div id="modal-voucher" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 id="modal-voucher-title" class="text-base font-bold text-gray-800">Thêm Voucher Thủ Công</h3>
+                <button onclick="closeVoucherModal()" class="text-gray-400 hover:text-gray-600 text-lg font-bold">&times;</button>
+            </div>
+
+            <form id="voucher-form" onsubmit="event.preventDefault(); submitVoucherForm();" class="space-y-3 text-xs">
+                <input type="hidden" id="v-form-id">
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Sàn / Merchant</label>
+                        <input type="text" id="v-form-merchant" required value="Shopee" class="w-full px-3 py-2 bg-gray-50 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Loại Voucher</label>
+                        <select id="v-form-type" class="w-full px-3 py-2 bg-gray-50 border rounded-lg">
+                            <option value="code">Mã Nhập (Code)</option>
+                            <option value="deeplink">Ưu Đãi Trực Tiếp (Deeplink)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Mã Voucher (Code) *</label>
+                        <input type="text" id="v-form-code" required placeholder="VD: SHOPEE50K" class="w-full px-3 py-2 bg-gray-50 border rounded-lg uppercase">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Mục Tiêu Đẩy Vào</label>
+                        <select id="v-form-target" class="w-full px-3 py-2 bg-gray-50 border rounded-lg">
+                            <option value="live">🟢 Live Vouchers (Xuất bản ngay)</option>
+                            <option value="pending">⏳ Pending Vouchers (Chờ kiểm tra)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-gray-700 mb-1">Tiêu Đề / Mô Tả Ngắn *</label>
+                    <input type="text" id="v-form-title-input" required placeholder="VD: Giảm 50K cho đơn từ 250K toàn sàn" class="w-full px-3 py-2 bg-gray-50 border rounded-lg">
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Kiểu Giảm</label>
+                        <select id="v-form-discount-type" class="w-full px-3 py-2 bg-gray-50 border rounded-lg">
+                            <option value="fixed">Số tiền cố định (VNĐ)</option>
+                            <option value="percent">Phần trăm (%)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Mức Giảm *</label>
+                        <input type="number" id="v-form-discount-val" required min="0" placeholder="VD: 50000 hoặc 15" class="w-full px-3 py-2 bg-gray-50 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Giảm Tối Đa (VNĐ)</label>
+                        <input type="number" id="v-form-discount-max" min="0" placeholder="Để trống nếu không giới hạn" class="w-full px-3 py-2 bg-gray-50 border rounded-lg">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Đơn Tối Thiểu (VNĐ)</label>
+                        <input type="number" id="v-form-min-order" min="0" value="0" class="w-full px-3 py-2 bg-gray-50 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-700 mb-1">Hạn Dùng (HSD) *</label>
+                        <input type="datetime-local" id="v-form-valid-to" required class="w-full px-3 py-2 bg-gray-50 border rounded-lg">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-gray-700 mb-1">Link Đích (Landing URL) *</label>
+                    <input type="url" id="v-form-url" required placeholder="https://shopee.vn/..." class="w-full px-3 py-2 bg-gray-50 border rounded-lg">
+                </div>
+
+                <div id="v-form-error" class="hidden p-2.5 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200"></div>
+
+                <div class="flex justify-end gap-3 pt-3 border-t">
+                    <button type="button" onclick="closeVoucherModal()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg">Hủy</button>
+                    <button type="submit" id="v-form-submit-btn" class="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-sm">Lưu Voucher</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT ĐIỀU KHIỂN QUẢN TRỊ VIÊN -->
+    <script>
+        const API_BASE = '/api';
+        let currentVoucherType = 'live';
+        let currentVoucherPage = 1;
+        let currentUserPage = 1;
+        let activeAdminEmail = '';
+
+        // 1. KHỞI TẠO BẢO MẬT & KIỂM TRA QUYỀN ADMIN (ZERO-FLASH CHECK)
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                // Chưa đăng nhập -> lập tức chuyển hướng về trang chủ mở modal đăng nhập
+                window.location.replace('/?action=login&redirect=admin');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/admin/check`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.status === 401 || res.status === 403) {
+                    const data = await res.json().catch(() => ({}));
+                    document.getElementById('auth-guard-msg').textContent = data.message || 'Bạn không có quyền truy cập trang quản trị này.';
+                    document.getElementById('auth-guard-msg').classList.add('text-red-600', 'font-bold');
+                    setTimeout(() => {
+                        window.location.replace('/');
+                    }, 1500);
+                    return;
+                }
+
+                if (!res.ok) {
+                    throw new Error('Lỗi kiểm tra quyền admin');
+                }
+
+                const data = await res.json();
+                activeAdminEmail = data.admin_email;
+                document.getElementById('admin-email-display').textContent = activeAdminEmail;
+
+                // Xác thực thành công -> gỡ lớp bảo vệ, hiển thị admin portal
+                document.getElementById('auth-guard').classList.add('hidden');
+                document.getElementById('admin-app').classList.remove('hidden');
+
+                // Tải dữ liệu ban đầu
+                loadDashboard();
+            } catch (err) {
+                console.error('Lỗi xác thực admin:', err);
+                alert('Không thể kết nối máy chủ xác thực quản trị. Vui lòng thử lại sau.');
+                window.location.replace('/');
+            }
+        });
+
+        function logoutAdmin() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.replace('/');
+        }
+
+        // 2. ĐIỀU HƯỚNG TABS
+        function switchTab(tab) {
+            ['dashboard', 'vouchers', 'users'].forEach(t => {
+                document.getElementById(`view-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).classList.remove('active');
+                document.getElementById(`tab-${t}`).classList.add('text-gray-500');
+            });
+
+            document.getElementById(`view-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.remove('text-gray-500');
+
+            if (tab === 'dashboard') loadDashboard();
+            if (tab === 'vouchers') loadVouchers();
+            if (tab === 'users') loadUsersList();
+        }
+
+        function getAuthHeaders() {
+            return {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        // 3. TAB 1: LOAD DASHBOARD & BOT HEALTH
+        async function loadDashboard() {
+            try {
+                const res = await fetch(`${API_BASE}/admin/dashboard`, { headers: getAuthHeaders() });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Lỗi tải dashboard');
+
+                // Stats
+                document.getElementById('stat-live-vouchers').textContent = Number(data.stats.total_live_vouchers).toLocaleString('vi-VN');
+                document.getElementById('stat-pending-vouchers').textContent = Number(data.stats.total_pending_vouchers).toLocaleString('vi-VN');
+                document.getElementById('stat-total-users').textContent = Number(data.stats.total_users).toLocaleString('vi-VN');
+                document.getElementById('stat-vip-users').textContent = Number(data.stats.total_vip_users).toLocaleString('vi-VN');
+                document.getElementById('stat-paid-orders-7d').textContent = Number(data.stats.recent_paid_orders_7d).toLocaleString('vi-VN');
+
+                document.getElementById('count-subtab-live').textContent = data.stats.total_live_vouchers;
+                document.getElementById('count-subtab-pending').textContent = data.stats.total_pending_vouchers;
+
+                // Bots
+                renderBotCard('hunter_bot', data.bots.hunter_bot);
+                renderBotCard('validator_bot', data.bots.validator_bot);
+                renderBotCard('telegram_bot', data.bots.telegram_notifier);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderBotCard(cardPrefix, bot) {
+            const statusEl = document.getElementById(`status-${cardPrefix}`);
+            const hbEl = document.getElementById(`hb-${cardPrefix}`);
+            const resEl = document.getElementById(`result-${cardPrefix}`);
+            const errEl = document.getElementById(`err-${cardPrefix}`);
+
+            if (!bot || bot.status === 'unknown') {
+                statusEl.className = 'text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500';
+                statusEl.textContent = 'Chưa có dữ liệu';
+                return;
+            }
+
+            hbEl.textContent = bot.last_heartbeat_at ? new Date(bot.last_heartbeat_at).toLocaleString('vi-VN') : '--';
+            resEl.textContent = bot.last_cycle_result || '--';
+
+            if (bot.last_vouchers_inserted !== undefined && document.getElementById(`inserted-${cardPrefix}`)) {
+                document.getElementById(`inserted-${cardPrefix}`).textContent = `${bot.last_vouchers_inserted} mã`;
+            }
+
+            if (bot.last_cycle_result === 'success') {
+                statusEl.className = 'text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700';
+                statusEl.textContent = '🟢 Hoạt động tốt';
+                errEl.classList.add('hidden');
+            } else if (bot.last_cycle_result === 'partial_error') {
+                statusEl.className = 'text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700';
+                statusEl.textContent = '🟡 Cảnh báo nhẹ';
+                if (bot.last_error_message) {
+                    errEl.textContent = bot.last_error_message;
+                    errEl.classList.remove('hidden');
+                }
+            } else {
+                statusEl.className = 'text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700';
+                statusEl.textContent = '🔴 Gặp lỗi';
+                if (bot.last_error_message) {
+                    errEl.textContent = bot.last_error_message;
+                    errEl.classList.remove('hidden');
+                }
+            }
+        }
+
+        // 4. TAB 2: QUẢN LÝ VOUCHER
+        function setVoucherType(type) {
+            currentVoucherType = type;
+            currentVoucherPage = 1;
+            if (type === 'live') {
+                document.getElementById('subtab-live').className = 'flex-1 md:flex-none px-4 py-1.5 rounded-md text-xs font-bold bg-white text-orange-600 shadow-sm transition';
+                document.getElementById('subtab-pending').className = 'flex-1 md:flex-none px-4 py-1.5 rounded-md text-xs font-bold text-gray-600 hover:text-orange-500 transition';
+            } else {
+                document.getElementById('subtab-pending').className = 'flex-1 md:flex-none px-4 py-1.5 rounded-md text-xs font-bold bg-white text-orange-600 shadow-sm transition';
+                document.getElementById('subtab-live').className = 'flex-1 md:flex-none px-4 py-1.5 rounded-md text-xs font-bold text-gray-600 hover:text-orange-500 transition';
+            }
+            loadVouchers();
+        }
+
+        function searchVouchers() {
+            currentVoucherPage = 1;
+            loadVouchers();
+        }
+
+        async function loadVouchers() {
+            const search = document.getElementById('voucher-search-input').value.trim();
+            const tbody = document.getElementById('vouchers-tbody');
+            tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">Đang tải dữ liệu...</td></tr>`;
+
+            try {
+                const res = await fetch(`${API_BASE}/admin/vouchers?type=${currentVoucherType}&page=${currentVoucherPage}&limit=15&search=${encodeURIComponent(search)}`, {
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Lỗi tải vouchers');
+
+                // Update pagination
+                document.getElementById('v-page-current').textContent = data.pagination.page;
+                document.getElementById('v-page-total').textContent = data.pagination.totalPages || 1;
+                document.getElementById('btn-v-prev').disabled = data.pagination.page <= 1;
+                document.getElementById('btn-v-next').disabled = data.pagination.page >= data.pagination.totalPages;
+
+                if (!data.items || data.items.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">Không tìm thấy voucher nào trong danh sách.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.items.map(v => {
+                    const discountText = v.discount_type === 'percent' 
+                        ? `${v.discount_value}% (Tối đa ${v.discount_max_value ? Number(v.discount_max_value).toLocaleString('vi-VN') + 'đ' : 'k giới hạn'})`
+                        : `${Number(v.discount_value).toLocaleString('vi-VN')}đ`;
+                    const minOrderText = v.min_order_value ? Number(v.min_order_value).toLocaleString('vi-VN') + 'đ' : '0đ';
+                    const expiryText = v.valid_to ? new Date(v.valid_to).toLocaleString('vi-VN') : 'Không có';
+                    const isDeeplink = v.voucher_type === 'deeplink';
+
+                    return `
+                        <tr class="hover:bg-gray-50/80 transition">
+                            <td class="px-4 py-3 font-bold text-gray-700">${v.merchant || 'Shopee'}</td>
+                            <td class="px-4 py-3">
+                                <div class="font-bold text-orange-600">${v.code}</div>
+                                <div class="text-[11px] text-gray-400">${isDeeplink ? '🔗 Deeplink' : '🏷️ Code nhập'}</div>
+                            </td>
+                            <td class="px-4 py-3 font-semibold text-gray-900">${discountText}</td>
+                            <td class="px-4 py-3 text-gray-600">${minOrderText}</td>
+                            <td class="px-4 py-3 text-gray-600 whitespace-nowrap">${expiryText}</td>
+                            <td class="px-4 py-3">
+                                <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[11px] font-mono">${v.source || 'manual'}</span>
+                            </td>
+                            <td class="px-4 py-3 text-right space-x-1 whitespace-nowrap">
+                                ${currentVoucherType === 'pending' ? `
+                                    <button onclick="approveVoucher('${v._id || v.code}')" class="px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white rounded font-bold text-[11px] shadow-sm transition">
+                                        Duyệt Ngay 🚀
+                                    </button>
+                                ` : ''}
+                                <button onclick="openEditVoucherModal('${v._id || v.code}')" class="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded font-semibold text-[11px] transition">
+                                    Sửa
+                                </button>
+                                <button onclick="deleteVoucher('${v._id || v.code}', '${v.code}')" class="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded font-semibold text-[11px] transition">
+                                    Xóa
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-6 text-center text-red-500">Lỗi: ${err.message}</td></tr>`;
+            }
+        }
+
+        function prevVoucherPage() {
+            if (currentVoucherPage > 1) {
+                currentVoucherPage--;
+                loadVouchers();
+            }
+        }
+
+        function nextVoucherPage() {
+            currentVoucherPage++;
+            loadVouchers();
+        }
+
+        // DUYỆT TAY VOUCHER
+        async function approveVoucher(id) {
+            if (!confirm(`Bạn có chắc chắn muốn duyệt mã này lên Live Vouchers ngay lập tức?`)) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/admin/vouchers/approve/${encodeURIComponent(id)}`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Không thể duyệt voucher');
+                alert(data.message);
+                loadVouchers();
+                loadDashboard();
+            } catch (err) {
+                alert('Lỗi: ' + err.message);
+            }
+        }
+
+        // XÓA VOUCHER
+        async function deleteVoucher(id, code) {
+            if (!confirm(`Bạn có chắc chắn muốn XÓA vĩnh viễn voucher '${code}' khỏi danh sách?`)) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/admin/vouchers/${encodeURIComponent(id)}?type=${currentVoucherType}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Không thể xóa voucher');
+                alert(data.message);
+                loadVouchers();
+                loadDashboard();
+            } catch (err) {
+                alert('Lỗi: ' + err.message);
+            }
+        }
+
+        // MODAL THÊM / SỬA VOUCHER
+        function openAddVoucherModal() {
+            document.getElementById('modal-voucher-title').textContent = 'Thêm Voucher Thủ Công';
+            document.getElementById('v-form-id').value = '';
+            document.getElementById('v-form-merchant').value = 'Shopee';
+            document.getElementById('v-form-type').value = 'code';
+            document.getElementById('v-form-code').value = '';
+            document.getElementById('v-form-code').readOnly = false;
+            document.getElementById('v-form-title-input').value = '';
+            document.getElementById('v-form-discount-type').value = 'fixed';
+            document.getElementById('v-form-discount-val').value = '';
+            document.getElementById('v-form-discount-max').value = '';
+            document.getElementById('v-form-min-order').value = '0';
+            document.getElementById('v-form-valid-to').value = '';
+            document.getElementById('v-form-url').value = 'https://shopee.vn/m/ma-giam-gia';
+            document.getElementById('v-form-target').parentElement.classList.remove('hidden');
+            document.getElementById('v-form-error').classList.add('hidden');
+            document.getElementById('modal-voucher').classList.remove('hidden');
+        }
+
+        function closeVoucherModal() {
+            document.getElementById('modal-voucher').classList.add('hidden');
+        }
+
+        async function openEditVoucherModal(id) {
+            // Lấy data từ table hoặc fetch lại
+            openAddVoucherModal();
+            document.getElementById('modal-voucher-title').textContent = 'Chỉnh Sửa Voucher';
+            document.getElementById('v-form-id').value = id;
+            document.getElementById('v-form-target').parentElement.classList.add('hidden'); // Khi sửa không đổi target collection
+
+            // Tìm doc trong bảng hiện tại
+            try {
+                const res = await fetch(`${API_BASE}/admin/vouchers?type=${currentVoucherType}&search=${encodeURIComponent(id)}`, {
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                const v = data.items && data.items.find(item => item._id === id || item.code === id);
+                if (v) {
+                    document.getElementById('v-form-merchant').value = v.merchant || 'Shopee';
+                    document.getElementById('v-form-type').value = v.voucher_type || 'code';
+                    document.getElementById('v-form-code').value = v.code;
+                    document.getElementById('v-form-code').readOnly = true;
+                    document.getElementById('v-form-title-input').value = v.title || '';
+                    document.getElementById('v-form-discount-type').value = v.discount_type || 'fixed';
+                    document.getElementById('v-form-discount-val').value = v.discount_value || '';
+                    document.getElementById('v-form-discount-max').value = v.discount_max_value || '';
+                    document.getElementById('v-form-min-order').value = v.min_order_value || 0;
+                    if (v.valid_to) {
+                        const d = new Date(v.valid_to);
+                        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+                        document.getElementById('v-form-valid-to').value = d.toISOString().slice(0, 16);
+                    }
+                    document.getElementById('v-form-url').value = v.landing_url || '';
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function submitVoucherForm() {
+            const id = document.getElementById('v-form-id').value;
+            const errEl = document.getElementById('v-form-error');
+            const submitBtn = document.getElementById('v-form-submit-btn');
+            errEl.classList.add('hidden');
+
+            const validToInput = document.getElementById('v-form-valid-to').value;
+            const validToIso = validToInput ? new Date(validToInput).toISOString() : null;
+
+            const payload = {
+                merchant: document.getElementById('v-form-merchant').value.trim(),
+                voucher_type: document.getElementById('v-form-type').value,
+                code: document.getElementById('v-form-code').value.trim().toUpperCase(),
+                title: document.getElementById('v-form-title-input').value.trim(),
+                discount_type: document.getElementById('v-form-discount-type').value,
+                discount_value: Number(document.getElementById('v-form-discount-val').value),
+                discount_max_value: document.getElementById('v-form-discount-max').value ? Number(document.getElementById('v-form-discount-max').value) : null,
+                min_order_value: Number(document.getElementById('v-form-min-order').value) || 0,
+                valid_to: validToIso,
+                landing_url: document.getElementById('v-form-url').value.trim(),
+                target: document.getElementById('v-form-target').value
+            };
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Đang lưu...';
+
+            try {
+                let res;
+                if (id) {
+                    // PUT edit
+                    res = await fetch(`${API_BASE}/admin/vouchers/${encodeURIComponent(id)}?type=${currentVoucherType}`, {
+                        method: 'PUT',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    // POST create
+                    res = await fetch(`${API_BASE}/admin/vouchers`, {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.message || 'Lỗi thao tác');
+                }
+
+                alert(data.message || 'Thao tác voucher thành công!');
+                closeVoucherModal();
+                loadVouchers();
+                loadDashboard();
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Lưu Voucher';
+            }
+        }
+
+        // 5. TAB 3: USER LOOKUP & CẤP VIP THỦ CÔNG
+        async function lookupUser(explicitEmail) {
+            const email = (explicitEmail || document.getElementById('user-lookup-email').value).trim();
+            if (!email) {
+                alert('Vui lòng nhập email người dùng để tra cứu.');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/admin/users/${encodeURIComponent(email)}/details`, {
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Không tìm thấy người dùng');
+
+                const u = data.user;
+                document.getElementById('u-detail-email').textContent = u.email;
+                document.getElementById('u-detail-id').textContent = u._id;
+                document.getElementById('u-detail-created').textContent = u.created_at ? new Date(u.created_at).toLocaleString('vi-VN') : '--';
+
+                const memEl = document.getElementById('u-detail-membership');
+                const isVip = u.membership === 'vip' || (u.vip_expired_at && new Date(u.vip_expired_at) > new Date());
+                memEl.textContent = isVip ? 'VIP' : 'FREE';
+                memEl.className = `font-black px-2 py-0.5 rounded text-white ${isVip ? 'bg-orange-500' : 'bg-gray-500'}`;
+
+                document.getElementById('u-detail-plan').textContent = u.current_plan === 'vip_monthly' ? 'Gói Tháng (30 ngày)' : (u.current_plan === 'vip_weekly' ? 'Gói Tuần (7 ngày)' : 'Không có');
+                document.getElementById('u-detail-expiry').textContent = u.vip_expired_at ? new Date(u.vip_expired_at).toLocaleString('vi-VN') : 'Chưa kích hoạt';
+
+                if (u.deletion_requested) {
+                    document.getElementById('u-detail-deletion-box').classList.remove('hidden');
+                } else {
+                    document.getElementById('u-detail-deletion-box').classList.add('hidden');
+                }
+
+                // Render Payment Orders
+                const ordersTbody = document.getElementById('user-orders-tbody');
+                if (!data.orders || data.orders.length === 0) {
+                    ordersTbody.innerHTML = `<tr><td colspan="6" class="px-3 py-4 text-center text-gray-400">User này chưa từng tạo đơn hàng nào trên hệ thống.</td></tr>`;
+                } else {
+                    ordersTbody.innerHTML = data.orders.map(o => {
+                        const statusBadge = o.status === 'paid' 
+                            ? `<span class="px-2 py-0.5 rounded bg-green-100 text-green-700 font-bold">PAID (Đã trả)</span>`
+                            : `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-bold">PENDING (Chờ trả)</span>`;
+                        return `
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 font-mono font-bold text-gray-800">${o._id}</td>
+                                <td class="px-3 py-2 font-medium">${o.plan === 'vip_monthly' ? 'Gói Tháng' : 'Gói Tuần'}</td>
+                                <td class="px-3 py-2 font-semibold text-gray-900">${o.amount ? Number(o.amount).toLocaleString('vi-VN') + 'đ' : '--'}</td>
+                                <td class="px-3 py-2">${statusBadge}</td>
+                                <td class="px-3 py-2 text-gray-500">${o.created_at ? new Date(o.created_at).toLocaleString('vi-VN') : '--'}</td>
+                                <td class="px-3 py-2 text-gray-500">${o.paid_at ? new Date(o.paid_at).toLocaleString('vi-VN') : '--'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+
+                // Render Manual Grants History
+                const grantsTbody = document.getElementById('user-grants-tbody');
+                if (!u.manual_vip_grants || u.manual_vip_grants.length === 0) {
+                    grantsTbody.innerHTML = `<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400">Chưa từng cấp thủ công trước đây.</td></tr>`;
+                } else {
+                    grantsTbody.innerHTML = u.manual_vip_grants.map(g => `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${new Date(g.granted_at).toLocaleString('vi-VN')}</td>
+                            <td class="px-3 py-2 font-bold text-orange-600">${g.plan === 'vip_monthly' ? 'Gói Tháng' : 'Gói Tuần'}</td>
+                            <td class="px-3 py-2 text-gray-800">${g.reason}</td>
+                            <td class="px-3 py-2 text-gray-500 font-mono">${g.admin_email}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                document.getElementById('user-lookup-result').classList.remove('hidden');
+            } catch (err) {
+                alert('Lỗi tra cứu: ' + err.message);
+            }
+        }
+
+        async function submitGrantVip() {
+            const email = document.getElementById('u-detail-email').textContent.trim();
+            const plan = document.getElementById('grant-plan-select').value;
+            const reason = document.getElementById('grant-reason-input').value.trim();
+            const btn = document.getElementById('btn-submit-grant');
+
+            if (!reason || reason.length < 5) {
+                alert('Lý do cấp VIP là BẮT BUỘC và phải có tối thiểu 5 ký tự (để đối chiếu sau này).');
+                return;
+            }
+
+            if (!confirm(`Xác nhận cấp ${plan === 'vip_monthly' ? 'Gói Tháng' : 'Gói Tuần'} cho user: ${email}?\nLý do: "${reason}"`)) {
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Đang xử lý...';
+
+            try {
+                const res = await fetch(`${API_BASE}/admin/users/grant-vip`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ email, plan, reason })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Lỗi cấp VIP');
+
+                alert(data.message);
+                document.getElementById('grant-reason-input').value = '';
+                // Reload user data & dashboard
+                lookupUser(email);
+                loadDashboard();
+                loadUsersList();
+            } catch (err) {
+                alert('Lỗi: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '⭐ Xác Nhận Cấp VIP & Lưu Audit Log';
+            }
+        }
+
+        // 6. DANH SÁCH USER TỔNG THỂ
+        async function loadUsersList() {
+            const tbody = document.getElementById('all-users-tbody');
+            tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">Đang tải danh sách người dùng...</td></tr>`;
+
+            try {
+                const res = await fetch(`${API_BASE}/admin/users?page=${currentUserPage}&limit=15`, {
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Lỗi tải user');
+
+                document.getElementById('u-page-current').textContent = data.pagination.page;
+                document.getElementById('u-page-total').textContent = data.pagination.totalPages || 1;
+                document.getElementById('btn-u-prev').disabled = data.pagination.page <= 1;
+                document.getElementById('btn-u-next').disabled = data.pagination.page >= data.pagination.totalPages;
+
+                if (!data.users || data.users.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Không có người dùng nào.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.users.map(u => {
+                    const isVip = u.membership === 'vip' || (u.vip_expired_at && new Date(u.vip_expired_at) > new Date());
+                    const badge = isVip 
+                        ? `<span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-bold">VIP</span>`
+                        : `<span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs">FREE</span>`;
+                    const planName = u.current_plan === 'vip_monthly' ? 'Gói Tháng' : (u.current_plan === 'vip_weekly' ? 'Gói Tuần' : '--');
+                    const expiry = u.vip_expired_at ? new Date(u.vip_expired_at).toLocaleString('vi-VN') : '--';
+                    const created = u.created_at ? new Date(u.created_at).toLocaleDateString('vi-VN') : '--';
+
+                    return `
+                        <tr class="hover:bg-gray-50/80 transition">
+                            <td class="px-4 py-3 font-semibold text-gray-800">${u.email}</td>
+                            <td class="px-4 py-3">${badge}</td>
+                            <td class="px-4 py-3 text-gray-600">${planName}</td>
+                            <td class="px-4 py-3 text-gray-600 whitespace-nowrap">${expiry}</td>
+                            <td class="px-4 py-3 text-gray-500">${created}</td>
+                            <td class="px-4 py-3 text-right">
+                                <button onclick="lookupUser('${u.email}')" class="px-2.5 py-1 bg-gray-100 hover:bg-orange-100 hover:text-orange-600 text-gray-700 rounded font-semibold text-xs transition">
+                                    Tra Cứu & Cấp VIP
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-6 text-center text-red-500">Lỗi: ${err.message}</td></tr>`;
+            }
+        }
+
+        function prevUserPage() {
+            if (currentUserPage > 1) {
+                currentUserPage--;
+                loadUsersList();
+            }
+        }
+
+        function nextUserPage() {
+            currentUserPage++;
+            loadUsersList();
+        }
+    </script>
+</body>
+</html>

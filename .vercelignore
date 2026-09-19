@@ -11,3 +11,4 @@ ruff.toml
 requirements.txt
 .ruff_cache
 .venv
+
