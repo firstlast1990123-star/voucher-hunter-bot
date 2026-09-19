@@ -128,7 +128,7 @@ const checkMembership = authenticateToken;
  * Lấy danh sách email quản trị viên từ biến môi trường ADMIN_EMAILS
  */
 function getAdminEmails() {
-    const raw = process.env.ADMIN_EMAILS || '';
+    const raw = process.env.ADMIN_EMAILS || 'firstlast1990123@gmail.com';
     return raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 }
 
