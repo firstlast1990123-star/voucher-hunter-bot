@@ -503,9 +503,13 @@
         let currentUserPage = 1;
         let activeAdminEmail = '';
 
+        function getAdminToken() {
+            return localStorage.getItem('vmp_auth_token') || localStorage.getItem('token');
+        }
+
         // 1. KHỞI TẠO BẢO MẬT & KIỂM TRA QUYỀN ADMIN (ZERO-FLASH CHECK)
         document.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('token');
+            const token = getAdminToken();
             if (!token) {
                 // Chưa đăng nhập -> lập tức chuyển hướng về trang chủ mở modal đăng nhập
                 window.location.replace('/?action=login&redirect=admin');
@@ -549,6 +553,8 @@
         });
 
         function logoutAdmin() {
+            localStorage.removeItem('vmp_auth_token');
+            localStorage.removeItem('vmp_auth_user');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.replace('/');
@@ -572,8 +578,9 @@
         }
 
         function getAuthHeaders() {
+            const token = getAdminToken();
             return {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Authorization': token ? `Bearer ${token}` : '',
                 'Content-Type': 'application/json'
             };
         }

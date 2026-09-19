@@ -16,20 +16,24 @@ const CONFIG = {
 // ==========================================
 
 function getToken() {
-    return localStorage.getItem('vmp_auth_token');
+    return localStorage.getItem('vmp_auth_token') || localStorage.getItem('token');
 }
 
 function setToken(token) {
     if (token) {
         localStorage.setItem('vmp_auth_token', token);
+        localStorage.setItem('token', token);
     } else {
         localStorage.removeItem('vmp_auth_token');
+        localStorage.removeItem('token');
     }
 }
 
 function removeToken() {
     localStorage.removeItem('vmp_auth_token');
     localStorage.removeItem('vmp_auth_user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
 }
 
 function getCurrentUser() {
