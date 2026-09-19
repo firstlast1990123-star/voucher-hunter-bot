@@ -323,9 +323,9 @@ async function runTests() {
         console.log('  ✅ PASSED: /admin phục vụ giao diện HTML chuẩn kèm zero-flash auth guard!');
 
     } finally {
-        // Dọn dẹp dữ liệu test
+        // Dọn dẹp dữ liệu test (không xóa ADMIN_EMAIL của chủ dự án)
         await db.collection('users').deleteMany({
-            email: { $in: [ADMIN_EMAIL, NORMAL_EMAIL, TARGET_USER_EMAIL] }
+            email: { $in: [NORMAL_EMAIL, TARGET_USER_EMAIL] }
         });
         await db.collection('live_vouchers').deleteMany({ code: /^TEST_ADMIN_/ });
         await db.collection('pending_vouchers').deleteMany({ code: /^TEST_ADMIN_/ });
