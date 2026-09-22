@@ -151,7 +151,7 @@ function requireAdmin(req, res, next) {
     if (!adminEmails.includes(userEmail)) {
         return res.status(403).json({
             error: 'FORBIDDEN',
-            message: 'Truy cập bị từ chối. Khu vực này chỉ dành riêng cho Quản trị viên hệ thống.'
+            message: 'Truy cập bị từ chối.'
         });
     }
 

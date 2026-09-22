@@ -20,6 +20,9 @@ const { globalLimiter } = require('./rateLimiter');
 
 const app = express();
 
+// Vô hiệu hóa header x-powered-by để không tiết lộ framework backend (Express)
+app.disable('x-powered-by');
+
 // Tin tưởng proxy (chuẩn triển khai production/Vercel để nhận diện đúng IP client)
 app.set('trust proxy', 1);
 
@@ -43,7 +46,10 @@ app.use(async (req, res, next) => {
         next();
     } catch (err) {
         console.error('Database connection error in middleware:', err);
-        return res.status(500).json({ error: 'DB_CONNECTION_ERROR', message: 'Không thể kết nối cơ sở dữ liệu' });
+        return res.status(500).json({
+            error: 'INTERNAL_SERVER_ERROR',
+            message: 'Đã có lỗi xảy ra trên hệ thống, vui lòng thử lại sau.'
+        });
     }
 });
 
