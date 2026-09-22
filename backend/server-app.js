@@ -33,6 +33,21 @@ app.use(cors());
 app.use(express.json());
 app.use(express.text({ type: '*/*' }));
 
+// Middleware chuyên biệt bắt lỗi cú pháp JSON từ express.json() (chạy TRƯỚC mọi route và generic error handler)
+app.use((err, req, res, next) => {
+    const isJsonSyntaxError =
+        (err instanceof SyntaxError || err.name === 'SyntaxError' || err.type === 'entity.parse.failed') &&
+        (err.status === 400 || err.statusCode === 400 || err.type === 'entity.parse.failed');
+
+    if (isJsonSyntaxError) {
+        return res.status(400).json({
+            error: 'BAD_REQUEST',
+            message: 'Định dạng dữ liệu JSON không hợp lệ.'
+        });
+    }
+    next(err);
+});
+
 // Chuẩn hóa req.body phòng thủ nếu body là Buffer hoặc chuỗi JSON (Serverless runtime)
 app.use((req, res, next) => {
     req.body = parseRequestBody(req.body);
@@ -99,8 +114,12 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, _next) => {
-    // Xử lý lỗi cú pháp JSON không hợp lệ từ express.json()
-    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    // Phòng vệ tầng cuối: xử lý lỗi cú pháp JSON nếu lọt xuống đây
+    const isJsonSyntaxError =
+        (err instanceof SyntaxError || err.name === 'SyntaxError' || err.type === 'entity.parse.failed') &&
+        (err.status === 400 || err.statusCode === 400 || err.type === 'entity.parse.failed');
+
+    if (isJsonSyntaxError) {
         return res.status(400).json({
             error: 'BAD_REQUEST',
             message: 'Định dạng dữ liệu JSON không hợp lệ.'
