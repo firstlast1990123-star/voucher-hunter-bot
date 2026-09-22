@@ -36,7 +36,11 @@ app.use(express.text({ type: '*/*' }));
 // Middleware chuyên biệt bắt lỗi cú pháp JSON từ express.json() hoặc @vercel/node (chạy TRƯỚC mọi route và generic error handler)
 app.use((err, req, res, next) => {
     const isJsonSyntaxError =
-        err instanceof SyntaxError || (err && err.name === 'SyntaxError') || (err && err.type === 'entity.parse.failed');
+        err instanceof SyntaxError ||
+        (err && err.name === 'SyntaxError') ||
+        (err && err.type === 'entity.parse.failed') ||
+        (err && (err.status === 400 || err.statusCode === 400) && err.message === 'Invalid JSON') ||
+        (err && err.message && (err.message.includes('Unexpected token') || err.message.includes('is not valid JSON')));
 
     if (isJsonSyntaxError) {
         return res.status(400).json({
@@ -60,7 +64,6 @@ app.use(async (req, res, next) => {
         next();
     } catch (err) {
         console.error('Database connection error in middleware:', err);
-        res.setHeader('X-Debug-From', 'db-middleware');
         return res.status(500).json({
             error: 'INTERNAL_SERVER_ERROR',
             message: 'Đã có lỗi xảy ra trên hệ thống, vui lòng thử lại sau.'
@@ -116,7 +119,11 @@ app.use((req, res) => {
 app.use((err, req, res, _next) => {
     // Phòng vệ tầng cuối: xử lý lỗi cú pháp JSON nếu lọt xuống đây
     const isJsonSyntaxError =
-        err instanceof SyntaxError || (err && err.name === 'SyntaxError') || (err && err.type === 'entity.parse.failed');
+        err instanceof SyntaxError ||
+        (err && err.name === 'SyntaxError') ||
+        (err && err.type === 'entity.parse.failed') ||
+        (err && (err.status === 400 || err.statusCode === 400) && err.message === 'Invalid JSON') ||
+        (err && err.message && (err.message.includes('Unexpected token') || err.message.includes('is not valid JSON')));
 
     if (isJsonSyntaxError) {
         return res.status(400).json({
@@ -126,11 +133,6 @@ app.use((err, req, res, _next) => {
     }
 
     console.error('Server error:', err);
-    res.setHeader('X-Debug-From', 'global-error-handler');
-    res.setHeader('X-Debug-Err-Name', String(err && err.name));
-    res.setHeader('X-Debug-Err-Msg', String(err && err.message));
-    res.setHeader('X-Debug-Err-Type', String(err && err.type));
-    res.setHeader('X-Debug-Err-Status', String(err && (err.status || err.statusCode)));
     res.status(500).json({
         error: 'INTERNAL_SERVER_ERROR',
         message: 'Đã có lỗi xảy ra trên hệ thống, vui lòng thử lại sau.'
