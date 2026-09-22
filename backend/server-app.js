@@ -33,11 +33,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.text({ type: '*/*' }));
 
-// Middleware chuyên biệt bắt lỗi cú pháp JSON từ express.json() (chạy TRƯỚC mọi route và generic error handler)
+// Middleware chuyên biệt bắt lỗi cú pháp JSON từ express.json() hoặc @vercel/node (chạy TRƯỚC mọi route và generic error handler)
 app.use((err, req, res, next) => {
     const isJsonSyntaxError =
-        (err instanceof SyntaxError || err.name === 'SyntaxError' || err.type === 'entity.parse.failed') &&
-        (err.status === 400 || err.statusCode === 400 || err.type === 'entity.parse.failed');
+        err instanceof SyntaxError || (err && err.name === 'SyntaxError') || (err && err.type === 'entity.parse.failed');
 
     if (isJsonSyntaxError) {
         return res.status(400).json({
@@ -116,8 +115,7 @@ app.use((req, res) => {
 app.use((err, req, res, _next) => {
     // Phòng vệ tầng cuối: xử lý lỗi cú pháp JSON nếu lọt xuống đây
     const isJsonSyntaxError =
-        (err instanceof SyntaxError || err.name === 'SyntaxError' || err.type === 'entity.parse.failed') &&
-        (err.status === 400 || err.statusCode === 400 || err.type === 'entity.parse.failed');
+        err instanceof SyntaxError || (err && err.name === 'SyntaxError') || (err && err.type === 'entity.parse.failed');
 
     if (isJsonSyntaxError) {
         return res.status(400).json({
