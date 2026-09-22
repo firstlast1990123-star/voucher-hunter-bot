@@ -60,6 +60,7 @@ app.use(async (req, res, next) => {
         next();
     } catch (err) {
         console.error('Database connection error in middleware:', err);
+        res.setHeader('X-Debug-From', 'db-middleware');
         return res.status(500).json({
             error: 'INTERNAL_SERVER_ERROR',
             message: 'Đã có lỗi xảy ra trên hệ thống, vui lòng thử lại sau.'
@@ -125,6 +126,11 @@ app.use((err, req, res, _next) => {
     }
 
     console.error('Server error:', err);
+    res.setHeader('X-Debug-From', 'global-error-handler');
+    res.setHeader('X-Debug-Err-Name', String(err && err.name));
+    res.setHeader('X-Debug-Err-Msg', String(err && err.message));
+    res.setHeader('X-Debug-Err-Type', String(err && err.type));
+    res.setHeader('X-Debug-Err-Status', String(err && (err.status || err.statusCode)));
     res.status(500).json({
         error: 'INTERNAL_SERVER_ERROR',
         message: 'Đã có lỗi xảy ra trên hệ thống, vui lòng thử lại sau.'
