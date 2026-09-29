@@ -9,6 +9,58 @@ const router = express.Router();
 const scanCache = {};
 const CACHE_TTL = 30 * 60 * 1000; // 30 phút
 
+// Regex nhận diện các domain Shopee chính thức (bao gồm link web và link rút gọn như vn.shp.ee, shp.ee, s.shopee.vn, shope.ee)
+const SHOPEE_DOMAIN_REGEX = /^https?:\/\/(?:[a-zA-Z0-9-]+\.)*(?:shopee\.(?:vn|sg|com\.my|co\.id|co\.th|ph|tw|com\.br)|shp\.ee|shope\.ee)(\/.*)?$/i;
+const SHOPEE_SHORTLINK_REGEX = /^(?:[a-zA-Z0-9-]+\.)*(?:shp\.ee|shope\.ee)$|^s\.shopee\.vn$/i;
+const SHOPEE_HOST_WHITELIST = /^(?:[a-zA-Z0-9-]+\.)*(?:shopee\.(?:vn|sg|com\.my|co\.id|co\.th|ph|tw|com\.br)|shp\.ee|shope\.ee)$/i;
+
+/**
+ * Tự động theo redirect (HTTP HEAD/GET) để resolve URL rút gọn Shopee về link gốc đầy đủ
+ * Bảo vệ SSRF: Chỉ chấp nhận URL đích thuộc hệ sinh thái Shopee
+ */
+async function resolveShopeeShortlink(rawUrl) {
+    try {
+        const parsed = new URL(rawUrl);
+        if (SHOPEE_SHORTLINK_REGEX.test(parsed.hostname)) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 6000);
+            try {
+                let response = await fetch(rawUrl, {
+                    method: 'HEAD',
+                    redirect: 'follow',
+                    signal: controller.signal,
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+                    }
+                });
+
+                if (!response || !response.ok) {
+                    response = await fetch(rawUrl, {
+                        method: 'GET',
+                        redirect: 'follow',
+                        signal: controller.signal,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+                        }
+                    });
+                }
+
+                if (response && response.url) {
+                    const finalParsed = new URL(response.url);
+                    if (SHOPEE_HOST_WHITELIST.test(finalParsed.hostname)) {
+                        return response.url;
+                    }
+                }
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+    } catch (err) {
+        console.warn('Không thể resolve redirect Shopee shortlink, giữ nguyên URL gốc:', err.message);
+    }
+    return rawUrl;
+}
+
 /**
  * API #4: Smart Scanner
  * POST /api/scan (Hỗ trợ cả Khách vãng lai và User đã đăng nhập, giới hạn 30 lần/giờ theo IP)
@@ -22,25 +74,22 @@ router.post('/', scanLimiter, optionalAuthenticateToken, async (req, res) => {
         }
         
         // 1. Validate link
-        const shopeeRegex = /^https?:\/\/(shopee\.vn|shp\.ee|s\.shopee\.vn)\/.+/i;
-        if (!shopeeRegex.test(shopee_link)) {
+        if (!SHOPEE_DOMAIN_REGEX.test(shopee_link)) {
             return res.status(400).json({ error: "INVALID_LINK", message: "Link không hợp lệ" });
         }
         
-        // 2. Parse link lấy identifier (slug)
-        // Ví dụ: https://shopee.vn/Ao-Thun-Nam-i.12345.67890 -> Lấy i.12345.67890
-        const urlObj = new URL(shopee_link);
-        const pathSegments = urlObj.pathname.split('/');
+        // 2. Tự động theo redirect nếu là link rút gọn
+        const resolvedLink = await resolveShopeeShortlink(shopee_link);
+
+        // 3. Parse link lấy identifier (slug)
+        const urlObj = new URL(resolvedLink);
+        const pathSegments = urlObj.pathname.split('/').filter(Boolean);
         const slug = pathSegments[pathSegments.length - 1] || 'generic';
         
-        // 3. Check cache
+        // 4. Check cache (phân biệt cache cho VIP vs Free)
         const db = getDB();
-        
-        // Phân quyền VIP qua Single Source of Truth (gồm cả VIP trả phí & VIP Trial 2 tiếng)
-        // Tuyệt đối không đọc user_id hay membership từ client body/query
         const isVIP = req.userContext ? (req.userContext.membership === 'vip') : false;
 
-        // 3. Check cache (phân biệt cache cho VIP vs Free)
         const cacheKey = `${slug}_${isVIP ? 'vip' : 'free'}`;
         const now = Date.now();
         if (scanCache[cacheKey] && now - scanCache[cacheKey].timestamp < CACHE_TTL) {
@@ -48,9 +97,7 @@ router.post('/', scanLimiter, optionalAuthenticateToken, async (req, res) => {
             return res.status(200).json(scanCache[cacheKey].data);
         }
         
-        // 4. Tra cứu DB live_vouchers (không scrape live để tránh rate limit)
-        // Mock logic tra cứu: tìm các mã có merchant = "Shopee"
-        // Thêm tính năng Early Access cho VIP (15 phút)
+        // 5. Tra cứu DB live_vouchers (không scrape live để tránh rate limit)
         const VIP_EARLY_ACCESS_MINUTES = 15;
         const nowMs = Date.now();
         const cutoffTime = new Date(nowMs - VIP_EARLY_ACCESS_MINUTES * 60000).toISOString();
@@ -75,15 +122,20 @@ router.post('/', scanLimiter, optionalAuthenticateToken, async (req, res) => {
             });
         }
             
-        // 5. Chuẩn bị response
-        let responseData;
-        if (vouchers.length > 0) {
-            responseData = { success: true, shop_name: "Shopee", vouchers, new_vouchers_hidden_count };
-        } else {
-            responseData = { success: true, shop_name: "Shopee", vouchers: [], new_vouchers_hidden_count, message: "Chưa tìm thấy mã giảm giá nào cho sản phẩm/shop này." };
+        // 6. Chuẩn bị response
+        const isResolved = resolvedLink !== shopee_link;
+        let responseData = {
+            success: true,
+            shop_name: "Shopee",
+            vouchers: vouchers || [],
+            new_vouchers_hidden_count,
+            resolved_url: isResolved ? resolvedLink : undefined
+        };
+        if (vouchers.length === 0) {
+            responseData.message = "Chưa tìm thấy mã giảm giá nào cho sản phẩm/shop này.";
         }
         
-        // 6. Lưu cache
+        // 7. Lưu cache
         scanCache[cacheKey] = { timestamp: now, data: responseData };
         
         res.status(200).json(responseData);

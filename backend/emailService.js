@@ -19,7 +19,7 @@ async function sendPasswordResetEmail(toEmail, rawToken) {
     const fromEmail = process.env.EMAIL_FROM || 'Voucher Hunter <onboarding@resend.dev>';
 
     // Chế độ Test hoặc chưa cấu hình API Key: Mock an toàn không làm gián đoạn hệ thống
-    if (!apiKey || process.env.NODE_ENV === 'test') {
+    if (!apiKey || process.env.NODE_ENV === 'test' || toEmail.endsWith('@example.com') || toEmail.endsWith('@test.com')) {
         console.log(`ℹ️ [EMAIL MOCK] Gửi link đặt lại mật khẩu tới: ${toEmail}`);
         console.log(`ℹ️ [EMAIL MOCK] Reset URL: ${resetUrl}`);
         return {

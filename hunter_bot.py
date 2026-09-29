@@ -121,9 +121,8 @@ def parse_min_order(title, desc=""):
 def fetch_accesstrade(db) -> tuple[int, Optional[str]]:
     """Lấy voucher từ AccessTrade API"""
     if not config.ACCESSTRADE_API_KEY:
-        msg = "Chưa cấu hình ACCESSTRADE_API_KEY trong .env / GitHub Secrets"
-        logger.warning(msg)
-        return 0, msg
+        logger.info("Chưa cấu hình ACCESSTRADE_API_KEY (nguồn này đã tạm dừng), bỏ qua.")
+        return 0, None
 
     headers = {
         "Authorization": f"Token {config.ACCESSTRADE_API_KEY}",
@@ -270,15 +269,30 @@ def fetch_whitelist(db) -> tuple[int, Optional[str]]:
     yesterday = now - timedelta(days=1)
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+        "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "none",
+        "sec-fetch-user": "?1",
+        "upgrade-insecure-requests": "1"
     }
 
     for url in real_urls:
         try:
             logger.info(f"Đang thu thập từ trang whitelist: {url}")
             res = requests.get(url, headers=headers, timeout=15)
+            if res.status_code == 403:
+                server = res.headers.get("server", "").lower()
+                cf_ray = res.headers.get("cf-ray", "")
+                if "cloudflare" in server or cf_ray:
+                    logger.warning(f"⚠️ Trang {url} được bảo vệ bởi Cloudflare WAF và đã chặn IP của runner (HTTP 403, CF-Ray: {cf_ray}).")
+                else:
+                    logger.warning(f"⚠️ Nhận phản hồi HTTP 403 Forbidden từ {url}. Server: {server}")
             res.raise_for_status()
 
             soup = BeautifulSoup(res.text, 'html.parser')

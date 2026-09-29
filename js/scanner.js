@@ -21,10 +21,10 @@ async function scanShopeeLink() {
         return;
     }
 
-    // 1. Regex kiểm tra link Shopee
-    const shopeeRegex = /^https?:\/\/(shopee\.vn|shp\.ee|s\.shopee\.vn)\/.+/i;
+    // 1. Regex kiểm tra link Shopee (hỗ trợ cả domain web lẫn link rút gọn chính thức shp.ee, vn.shp.ee, s.shopee.vn, shope.ee)
+    const shopeeRegex = /^https?:\/\/(?:[a-zA-Z0-9-]+\.)*(?:shopee\.(?:vn|sg|com\.my|co\.id|co\.th|ph|tw|com\.br)|shp\.ee|shope\.ee)\/.+/i;
     if (!shopeeRegex.test(url)) {
-        errorEl.textContent = 'Link không hợp lệ. Vui lòng dán link Shopee chuẩn (VD: https://shopee.vn/...)';
+        errorEl.textContent = 'Link không hợp lệ. Vui lòng dán link Shopee chuẩn (VD: https://shopee.vn/... hoặc https://vn.shp.ee/...)';
         errorEl.classList.remove('hidden');
         return;
     }
@@ -58,6 +58,9 @@ async function scanShopeeLink() {
         
         const shopName = data.shop_name || 'Shopee';
         let html = `<div class="mt-6 mb-3 text-lg font-bold text-gray-800">✅ Đã tìm thấy mã cho shop: <span class="text-orange-500">${shopName}</span></div>`;
+        if (data.resolved_url) {
+            html += `<div class="text-xs text-gray-500 mb-3 truncate">🔗 Link gốc: <a href="${data.resolved_url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">${data.resolved_url}</a></div>`;
+        }
         
         if (data.new_vouchers_hidden_count > 0) {
             html += `

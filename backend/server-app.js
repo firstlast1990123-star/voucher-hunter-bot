@@ -102,13 +102,23 @@ apiRouter.use('/stats', statsRoutes);
 apiRouter.use('/admin', adminRoutes);
 
 // Phục vụ admin.html khi chạy server local
+// Phục vụ admin.html, reset-password.html, index.html khi chạy local (trước apiRouter để không bị middleware auth chặn GET /admin)
 app.get(['/admin', '/admin.html'], (req, res) => {
     res.sendFile(path.join(__dirname, '../admin.html'));
+});
+app.get(['/reset-password', '/reset-password.html'], (req, res) => {
+    res.sendFile(path.join(__dirname, '../reset-password.html'));
+});
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../index.html'));
 });
 
 // Mount apiRouter trên '/api' (local/rewrite) và root path (Vercel serverless)
 app.use('/api', apiRouter);
 app.use(apiRouter);
+
+// Phục vụ static assets (js, css, hình ảnh, v.v.) khi chạy local
+app.use(express.static(path.join(__dirname, '..'), { index: false }));
 
 // Fallback 404 handler
 app.use((req, res) => {

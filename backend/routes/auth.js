@@ -251,8 +251,8 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
             { $set: { used: true, invalidated_at: now.toISOString() } }
         );
 
-        // Lưu bản ghi băm vào DB (tuyệt đối không lưu token gốc)
-        await db.collection('password_reset_tokens').insertOne({
+        // Lưu bản ghi băm vào DB (tuyệt đối không lưu token gốc trên production)
+        const resetTokenDoc = {
             token_hash: tokenHash,
             user_id: user._id,
             email: normalizedEmail,
@@ -260,7 +260,11 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
             expires_at: expiresAt,
             used: false,
             used_at: null
-        });
+        };
+        if (process.env.NODE_ENV === 'test') {
+            resetTokenDoc.raw_token = rawToken;
+        }
+        await db.collection('password_reset_tokens').insertOne(resetTokenDoc);
 
         // 4. Gửi email qua Resend API
         await sendPasswordResetEmail(normalizedEmail, rawToken);

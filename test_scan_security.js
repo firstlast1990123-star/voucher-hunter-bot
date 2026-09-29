@@ -4,12 +4,25 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { MongoClient } = require('mongodb');
 const jwt = require('jsonwebtoken');
 
+const app = require('./backend/server-app');
+const { connectDB } = require('./backend/db');
+
 async function runTest() {
     console.log("=== BẮT ĐẦU TEST BẢO MẬT API /api/scan (KHÔNG TIN CLIENT MEMBERSHIP) ===");
     
+    await connectDB();
     const client = new MongoClient(process.env.MONGO_URI);
     await client.connect();
     const db = client.db(process.env.DB_NAME || 'voucher_db');
+    
+    let server;
+    let baseUrl;
+    await new Promise((resolve) => {
+        server = app.listen(0, () => {
+            baseUrl = `http://localhost:${server.address().port}`;
+            resolve();
+        });
+    });
     
     const testFreeId = `test_free_${Date.now()}`;
     const testVipId = `test_vip_${Date.now()}`;
@@ -24,7 +37,7 @@ async function runTest() {
             merchant: "Shopee",
             title: "Mã VIP Mới Ra Lò",
             discount_type: "fixed",
-            discount_value: 50000,
+            discount_value: 9999999,
             published_at: new Date(now.getTime() - 60000).toISOString(),
             status: "live",
             landing_url: "https://shopee.vn"
@@ -50,7 +63,7 @@ async function runTest() {
         
         // TEST 1: User Free cố tình giả mạo membership: "vip" trong body
         console.log("1. Test User Free gửi body { membership: 'vip', user_id: free_id }...");
-        const res1 = await fetch('http://localhost:3000/api/scan', {
+        const res1 = await fetch(`${baseUrl}/api/scan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -67,7 +80,7 @@ async function runTest() {
 
         // TEST 2: Không gửi user_id nhưng gửi membership: "vip"
         console.log("2. Test ẩn danh gửi body { membership: 'vip' }...");
-        const res2 = await fetch('http://localhost:3000/api/scan', {
+        const res2 = await fetch(`${baseUrl}/api/scan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -83,7 +96,7 @@ async function runTest() {
         // TEST 3: User VIP thật với JWT Bearer token
         console.log("3. Test User VIP thật gửi Bearer token...");
         const vipToken = jwt.sign({ user_id: testVipId }, process.env.JWT_SECRET);
-        const res3 = await fetch('http://localhost:3000/api/scan', {
+        const res3 = await fetch(`${baseUrl}/api/scan`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -101,7 +114,7 @@ async function runTest() {
 
         // TEST 4: Gửi user_id trong body mà không có token -> Bị bỏ qua hoàn toàn
         console.log("4. Test User VIP gửi user_id trong body không có Bearer token...");
-        const res4 = await fetch('http://localhost:3000/api/scan', {
+        const res4 = await fetch(`${baseUrl}/api/scan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -119,6 +132,7 @@ async function runTest() {
     } finally {
         await db.collection('live_vouchers').deleteOne({ code: testCode });
         await db.collection('users').deleteMany({ _id: { $in: [testFreeId, testVipId] } });
+        if (server) await new Promise(r => server.close(r));
         await client.close();
         console.log("🧹 Đã dọn dẹp sạch bản ghi test trong MongoDB.");
     }
