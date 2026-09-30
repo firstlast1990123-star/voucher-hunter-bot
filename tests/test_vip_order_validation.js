@@ -5,9 +5,9 @@
 
 const assert = require('assert');
 const jwt = require('jsonwebtoken');
-const handler = require('./api/index');
+const handler = require('../api/index');
 
-const { connectDB } = require('./backend/db');
+const { connectDB } = require('../backend/db');
 
 const JWT_SECRET = process.env.JWT_SECRET || '9771ca0f7da23f5ba8e4e9062f126607e72b1d4479788ee88ccead46fed11bc3';
 const fn = typeof handler === 'function' ? handler : handler.handler;

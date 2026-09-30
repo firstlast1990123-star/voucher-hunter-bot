@@ -4,8 +4,8 @@ const path = require('path');
 
 // Test 1: Python script with invalid DB connection
 console.log("=== TEST 1: Giả lập lỗi kết nối MongoDB trong verify_wrapper.py ===");
-const scriptPath = path.join(__dirname, 'verify_wrapper.py');
-const venvPython = path.join(__dirname, '.venv/bin/python3');
+const scriptPath = path.join(__dirname, '../bots/verify_wrapper.py');
+const venvPython = path.join(__dirname, '../.venv/bin/python3');
 
 const env = { ...process.env, MONGO_URI: "mongodb://invalid_host_for_test:27017" };
 

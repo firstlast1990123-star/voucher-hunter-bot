@@ -1,9 +1,9 @@
 const assert = require('assert');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const jwt = require('jsonwebtoken');
-const { connectDB, getDB } = require('./backend/db');
-const app = require('./backend/server-app');
+const { connectDB, getDB } = require('../backend/db');
+const app = require('../backend/server-app');
 
 const JWT_SECRET = process.env.JWT_SECRET || '9771ca0f7da23f5ba8e4e9062f126607e72b1d4479788ee88ccead46fed11bc3';
 const ADMIN_EMAIL = 'firstlast1990123@gmail.com';

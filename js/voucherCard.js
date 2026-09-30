@@ -52,12 +52,33 @@ async function saveVoucher(code, btnElement) {
 }
 
 /**
+ * Định dạng số tiền chuẩn Việt Nam với dấu chấm phân cách hàng nghìn (VD: 3000000 -> 3.000.000đ)
+ */
+function formatVND(amount) {
+    if (amount === null || amount === undefined || isNaN(Number(amount))) return '';
+    return Number(amount).toLocaleString('vi-VN') + 'đ';
+}
+
+/**
  * Render HTML cho một thẻ voucher
  * @param {Object} v - Dữ liệu voucher
  */
 function renderVoucherCard(v) {
+    const titleLower = (v.title || '').toLowerCase();
+    const isUpTo = titleLower.includes('giảm đến') || titleLower.includes('lên đến') || titleLower.includes('tối đa');
+
     // Nếu voucher bị khóa (Free user quá 10 mã)
     if (v.locked) {
+        let lockedDiscount = 'Giảm sốc';
+        if (v.discount_type === 'percent') {
+            lockedDiscount = `Giảm ${v.discount_value}%`;
+            if (v.discount_max_value) {
+                lockedDiscount += `, tối đa ${formatVND(v.discount_max_value)}`;
+            }
+        } else if (v.discount_value) {
+            lockedDiscount = `${isUpTo ? 'Giảm đến ' : 'Giảm '}${formatVND(v.discount_value)}`;
+        }
+
         return `
         <div class="relative bg-white rounded-lg p-4 shadow flex flex-col h-full overflow-hidden border border-gray-200">
             <div class="opacity-30 blur-[3px] pointer-events-none flex flex-col h-full">
@@ -71,7 +92,7 @@ function renderVoucherCard(v) {
                     </div>
                 </div>
                 <div class="flex-grow">
-                    <div class="text-xl font-extrabold text-orange-500 mb-2">${v.discount_value || 'Giảm sốc'}</div>
+                    <div class="text-xl font-extrabold text-orange-500 mb-2">${lockedDiscount}</div>
                     <div class="text-sm text-gray-600 border border-dashed border-gray-300 p-2 text-center rounded bg-gray-50">
                         ***LOCKED***
                     </div>
@@ -124,15 +145,33 @@ function renderVoucherCard(v) {
         </button>
     `;
 
-    // Hiển thị điều kiện mã rõ ràng
-    let discountText = v.discount_value || 'Giảm sốc';
+    // Hiển thị điều kiện mã rõ ràng với phân cách hàng nghìn chuẩn Việt Nam
+    let discountText = 'Giảm sốc';
     if (v.discount_type === 'percent') {
         discountText = `Giảm ${v.discount_value}%`;
         if (v.discount_max_value) {
-            discountText += `, tối đa ${v.discount_max_value}đ`;
+            discountText += `, tối đa ${formatVND(v.discount_max_value)}`;
         }
-    } else if (v.discount_type === 'fixed') {
-        discountText = `Giảm ${v.discount_value}đ`;
+    } else if (v.discount_type === 'fixed' || typeof v.discount_value === 'number') {
+        discountText = `${isUpTo ? 'Giảm đến ' : 'Giảm '}${formatVND(v.discount_value)}`;
+    } else if (v.discount_value) {
+        discountText = v.discount_value;
+    }
+
+    // Ghi chú ngữ cảnh cho các chương trình hội viên / rewards / đơn đầu
+    let programBadge = '';
+    if (titleLower.includes('rewards') || titleLower.includes('hội viên') || titleLower.includes('thân thiết') || titleLower.includes('thành viên')) {
+        programBadge = `
+            <div class="text-xs text-amber-800 bg-amber-50 rounded px-2.5 py-1 mt-2 border border-amber-200 inline-block font-medium">
+                ℹ️ Áp dụng cho hội viên thân thiết, xem điều kiện tại Shopee
+            </div>
+        `;
+    } else if (titleLower.includes('khách mới') || titleLower.includes('đơn đầu')) {
+        programBadge = `
+            <div class="text-xs text-blue-800 bg-blue-50 rounded px-2.5 py-1 mt-2 border border-blue-200 inline-block font-medium">
+                ℹ️ Dành riêng cho khách hàng mới / đơn hàng đầu tiên
+            </div>
+        `;
     }
 
     return `
@@ -149,8 +188,9 @@ function renderVoucherCard(v) {
         </div>
         <div class="flex-grow">
             <div class="text-xl font-extrabold text-orange-500">${discountText}</div>
-            ${v.min_order_value ? `<div class="text-xl font-bold text-gray-700 mt-1">Đơn tối thiểu ${v.min_order_value.toLocaleString()}đ</div>` : ''}
-            ${v.valid_to ? `<div class="text-xs text-red-500 mt-2 font-medium">HSD: ${new Date(v.valid_to).toLocaleDateString()}</div>` : ''}
+            ${programBadge}
+            ${v.min_order_value ? `<div class="text-sm font-semibold text-gray-700 mt-2">Đơn tối thiểu ${formatVND(v.min_order_value)}</div>` : ''}
+            ${v.valid_to ? `<div class="text-xs text-red-500 mt-2 font-medium">HSD: ${new Date(v.valid_to).toLocaleDateString('vi-VN')}</div>` : ''}
         </div>
         ${actionHtml}
     </div>

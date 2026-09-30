@@ -1,6 +1,6 @@
 const express = require('express');
 const { getDB } = require('../db');
-const { optionalAuthenticateToken } = require('../middleware');
+const { authenticateToken } = require('../middleware');
 const { scanLimiter } = require('../rateLimiter');
 
 const router = express.Router();
@@ -65,7 +65,7 @@ async function resolveShopeeShortlink(rawUrl) {
  * API #4: Smart Scanner
  * POST /api/scan (Hỗ trợ cả Khách vãng lai và User đã đăng nhập, giới hạn 30 lần/giờ theo IP)
  */
-router.post('/', scanLimiter, optionalAuthenticateToken, async (req, res) => {
+router.post('/', scanLimiter, authenticateToken, async (req, res) => {
     try {
         const { shopee_link } = req.body;
         

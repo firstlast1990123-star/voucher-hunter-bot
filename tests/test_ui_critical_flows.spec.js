@@ -17,13 +17,13 @@
 
 const { chromium } = require('playwright');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 process.env.NODE_ENV = 'test';
 const assert = require('assert');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { connectDB, getDB } = require('./backend/db');
-const app = require('./backend/server-app');
+const { connectDB, getDB } = require('../backend/db');
+const app = require('../backend/server-app');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret_placeholder';
 const ADMIN_EMAIL = (process.env.ADMIN_EMAILS || '').split(',')[0].trim() || 'firstlast1990123@gmail.com';
@@ -299,6 +299,7 @@ async function runCriticalUITests() {
             await page.goto(baseUrl + '/', { waitUntil: 'domcontentloaded' });
 
             // 4a. Mở modal quên mật khẩu
+            await page.waitForSelector('#btn-open-auth', { state: 'visible', timeout: 15000 });
             await page.click('#btn-open-auth');
             await page.click('a:has-text("Quên mật khẩu?")');
             await page.waitForSelector('#forgot-password-modal:not(.hidden)');
@@ -355,15 +356,41 @@ async function runCriticalUITests() {
             const page = await context.newPage();
             await page.goto(baseUrl + '/', { waitUntil: 'domcontentloaded' });
 
-            // 5a. Thử link không hợp lệ (ví dụ: link ngoài Shopee)
+            // 5a. Khách vãng lai chưa đăng nhập bấm Quét -> Bị chặn và mở modal đăng nhập
+            await page.fill('#scanner-input', 'https://shopee.vn/product-test-i.123.456');
+            await page.click('#btn-scan');
+            await page.waitForSelector('#auth-modal:not(.hidden)');
+            console.log('  5a: Khách vãng lai chưa đăng nhập bấm Quét bị chặn đúng, mở modal đăng nhập');
+
+            // 5b. Đăng nhập người dùng Free và đóng modal
+            const SCANNER_FREE_USER_ID = `scanner_free_${RUN_ID}`;
+            await db.collection('users').insertOne({
+                _id: SCANNER_FREE_USER_ID,
+                email: `scanner_free_${RUN_ID}@example.com`,
+                membership: 'free',
+                vip_expired_at: null,
+                trial_used: true,
+                created_at: new Date().toISOString()
+            });
+            const freeToken = jwt.sign({ user_id: SCANNER_FREE_USER_ID }, JWT_SECRET);
+
+            await page.evaluate((token) => {
+                localStorage.setItem('vmp_auth_token', token);
+                localStorage.setItem('token', token);
+                localStorage.setItem('vmp_auth_user', JSON.stringify({ email: 'scanner_free@example.com', membership: 'free' }));
+                if (typeof closeAuthModal === 'function') closeAuthModal();
+            }, freeToken);
+            await page.waitForSelector('#auth-modal', { state: 'hidden' });
+
+            // 5c. Thử link không hợp lệ (ví dụ: link ngoài Shopee)
             await page.fill('#scanner-input', 'https://google.com/test-link');
             await page.click('#btn-scan');
             await page.waitForSelector('#scanner-error:not(.hidden)');
             const errText = await page.textContent('#scanner-error');
             assert.ok(errText.includes('Link không hợp lệ'), 'Phải báo lỗi khi link không phải Shopee');
-            console.log('  5a: Đã validate chặn đúng link không phải Shopee');
+            console.log('  5c: Đã validate chặn đúng link không phải Shopee');
 
-            // 5b. Thử link Shopee hợp lệ
+            // 5d. Thử link Shopee hợp lệ
             await page.fill('#scanner-input', 'https://shopee.vn/Ao-Thun-Cotton-Nam-Nu-i.12345.67890');
             await page.click('#btn-scan');
 
@@ -379,9 +406,9 @@ async function runCriticalUITests() {
             
             const isErrorHidden = await page.locator('#scanner-error').evaluate(el => el.classList.contains('hidden'));
             assert.ok(isErrorHidden, 'Thông báo lỗi validation phải ẩn đi khi nhập link hợp lệ');
-            console.log(`  5b: Tra cứu thành công, kết quả trả về: "${resultsContent.substring(0, 60).replace(/\n/g, ' ')}..."`);
+            console.log(`  5d: Tra cứu thành công, kết quả trả về: "${resultsContent.substring(0, 60).replace(/\n/g, ' ')}..."`);
 
-            // 5c. Thử link rút gọn chính thức vn.shp.ee
+            // 5e. Thử link rút gọn chính thức vn.shp.ee
             await page.fill('#scanner-input', 'https://vn.shp.ee/AQT2iSgh');
             await page.click('#btn-scan');
 
@@ -392,7 +419,7 @@ async function runCriticalUITests() {
 
             const shortResultsContent = await page.textContent('#scanner-results');
             assert.ok(shortResultsContent.includes('Đã tìm thấy mã') || shortResultsContent.includes('Shopee'), 'Scanner phải xử lý link vn.shp.ee thành công');
-            console.log('  5c: Tra cứu thành công với link rút gọn chính thức vn.shp.ee');
+            console.log('  5e: Tra cứu thành công với link rút gọn chính thức vn.shp.ee');
 
             await context.close();
             passedTests++;
@@ -407,7 +434,10 @@ async function runCriticalUITests() {
         const db = getDB();
         if (db) {
             await db.collection('users').deleteMany({
-                email: { $in: [USER_FLOW1, TARGET_FLOW3, USER_FLOW4] }
+                $or: [
+                    { email: { $in: [USER_FLOW1, TARGET_FLOW3, USER_FLOW4, `scanner_free_${RUN_ID}@example.com`] } },
+                    { _id: `scanner_free_${RUN_ID}` }
+                ]
             });
             await db.collection('password_reset_tokens').deleteMany({
                 email: { $in: [USER_FLOW1, TARGET_FLOW3, USER_FLOW4] }

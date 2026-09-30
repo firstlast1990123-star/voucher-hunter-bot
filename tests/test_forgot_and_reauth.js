@@ -16,8 +16,8 @@ const assert = require('assert');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { connectDB } = require('./backend/db');
-const handler = require('./api/index');
+const { connectDB } = require('../backend/db');
+const handler = require('../api/index');
 
 const fn = typeof handler === 'function' ? handler : handler.handler;
 const JWT_SECRET = process.env.JWT_SECRET || '9771ca0f7da23f5ba8e4e9062f126607e72b1d4479788ee88ccead46fed11bc3';

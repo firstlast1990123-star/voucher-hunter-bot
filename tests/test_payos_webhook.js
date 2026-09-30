@@ -1,8 +1,9 @@
 const crypto = require('crypto');
 const assert = require('assert');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { MongoClient } = require('mongodb');
+const app = require('../backend/server-app');
 
 function generatePayOSSignature(data, checksumKey) {
     const sortedKeys = Object.keys(data).sort();
@@ -19,6 +20,15 @@ function generatePayOSSignature(data, checksumKey) {
 async function runTest() {
     console.log("=== BẮT ĐẦU TEST GIẢ LẬP WEBHOOK PAYOS KÍCH HOẠT VIP ===");
     
+    let server;
+    let baseUrl;
+    await new Promise((resolve) => {
+        server = app.listen(0, () => {
+            baseUrl = `http://localhost:${server.address().port}`;
+            resolve();
+        });
+    });
+
     const client = new MongoClient(process.env.MONGO_URI);
     await client.connect();
     const db = client.db(process.env.DB_NAME || 'voucher_db');
@@ -74,7 +84,7 @@ async function runTest() {
         };
         
         console.log("3. Gửi webhook xác nhận thanh toán thành công đến server Express...");
-        const res1 = await fetch('http://localhost:3000/api/payment/webhook', {
+        const res1 = await fetch(`${baseUrl}/api/payment/webhook`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload1)
@@ -124,7 +134,7 @@ async function runTest() {
         };
         const signature2 = generatePayOSSignature(webhookData2, checksumKey);
         
-        await fetch('http://localhost:3000/api/payment/webhook', {
+        await fetch(`${baseUrl}/api/payment/webhook`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -144,6 +154,9 @@ async function runTest() {
         console.log("\n🎉 TẤT CẢ TEST WEBHOOK PAYOS VÀ KÍCH HOẠT VIP ĐÃ HOÀN TOÀN THÀNH CÔNG!");
         
     } finally {
+        if (server) {
+            await new Promise((res) => server.close(res));
+        }
         // Dọn dẹp dữ liệu test
         await db.collection('payment_orders').deleteMany({ _id: { $in: [testOrderCode1, testOrderCode2] } });
         await db.collection('users').deleteOne({ _id: testUserId });

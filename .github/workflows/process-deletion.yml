@@ -29,4 +29,4 @@ jobs:
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
           DB_NAME: ${{ secrets.DB_NAME }}
-        run: python process_deletion.py
+        run: python bots/process_deletion.py

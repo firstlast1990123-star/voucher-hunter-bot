@@ -9,6 +9,17 @@ async function scanShopeeLink() {
     const resultContainer = document.getElementById('scanner-results');
     const btnEl = document.getElementById('btn-scan');
     
+    // Yêu cầu đăng nhập trước khi dùng Smart Scanner
+    if (typeof isLoggedIn === 'function' && !isLoggedIn()) {
+        if (typeof showToast === 'function') {
+            showToast("Vui lòng đăng nhập để sử dụng tính năng Smart Scanner.", "warning");
+        }
+        if (typeof openAuthModal === 'function') {
+            openAuthModal('login');
+        }
+        return;
+    }
+
     const url = inputEl.value.trim();
     
     // Clear old errors and results
@@ -53,6 +64,19 @@ async function scanShopeeLink() {
                 shopee_link: url
             })
         });
+
+        if (res.status === 401) {
+            errorEl.textContent = 'Vui lòng đăng nhập để sử dụng tính năng Smart Scanner.';
+            errorEl.classList.remove('hidden');
+            resultContainer.innerHTML = '';
+            if (typeof showToast === 'function') {
+                showToast("Vui lòng đăng nhập để tiếp tục.", "warning");
+            }
+            if (typeof openAuthModal === 'function') {
+                openAuthModal('login');
+            }
+            return;
+        }
         
         const data = await res.json();
         

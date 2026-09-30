@@ -5,7 +5,7 @@
 
 const assert = require('assert');
 const crypto = require('crypto');
-const handler = require('./api/index');
+const handler = require('../api/index');
 
 function generatePayOSSignature(data, checksumKey) {
     const sortedKeys = Object.keys(data).sort();

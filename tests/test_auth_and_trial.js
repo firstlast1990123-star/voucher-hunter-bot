@@ -4,11 +4,14 @@
  */
 
 const assert = require('assert');
-const { connectDB } = require('./backend/db');
-const { getEffectiveMembership, getTrialRemainingSeconds } = require('./backend/authUtils');
-const voucherValidatorCore = require('./backend/authUtils'); // same logic
+const jwt = require('jsonwebtoken');
+const { connectDB } = require('../backend/db');
+const { getEffectiveMembership, getTrialRemainingSeconds } = require('../backend/authUtils');
+const voucherValidatorCore = require('../backend/authUtils'); // same logic
 
-const BASE_URL = 'http://localhost:3000';
+const app = require('../backend/server-app');
+
+let BASE_URL;
 
 async function runTests() {
     console.log("==================================================================");
@@ -16,6 +19,13 @@ async function runTests() {
     console.log("==================================================================");
 
     const db = await connectDB();
+    let server;
+    await new Promise((resolve) => {
+        server = app.listen(0, () => {
+            BASE_URL = `http://localhost:${server.address().port}`;
+            resolve();
+        });
+    });
     const testTimestamp = Date.now();
     const testEmail = `test_user_${testTimestamp}@example.com`;
     const testPassword = 'SecurePassword123!';
@@ -267,16 +277,16 @@ async function runTests() {
 
         const scanUrl = `https://shopee.vn/product-test-item-i.123.${testTimestamp}`;
 
-        // 5.1 Khách vãng lai (không token) quét mã -> mã mới bị ẩn
+        // 5.1 Khách vãng lai (không token) quét mã -> Bị chặn 401 UNAUTHORIZED (bắt buộc đăng nhập)
         const resScanGuest = await fetch(`${BASE_URL}/api/scan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ shopee_link: scanUrl })
         });
-        assert.strictEqual(resScanGuest.status, 200);
+        assert.strictEqual(resScanGuest.status, 401, "Khách vãng lai chưa đăng nhập phải bị chặn 401");
         const dataScanGuest = await resScanGuest.json();
-        assert.ok(dataScanGuest.new_vouchers_hidden_count >= 1, "Khách vãng lai phải bị ẩn mã Early Access");
-        console.log("  ✅ 5.1 Khách vãng lai không token -> Mã Early Access bị ẩn (phân quyền Free).");
+        assert.strictEqual(dataScanGuest.error, 'UNAUTHORIZED', "Phải trả về error UNAUTHORIZED");
+        console.log("  ✅ 5.1 Khách vãng lai không token -> Bị chặn 401 UNAUTHORIZED (bắt buộc đăng nhập).");
 
         // 5.2 User đang trong VIP Trial gửi Bearer token quét mã -> Thấy toàn bộ, 0 mã bị ẩn
         const resScanTrial = await fetch(`${BASE_URL}/api/scan`, {
@@ -292,10 +302,23 @@ async function runTests() {
         assert.strictEqual(dataScanTrial.new_vouchers_hidden_count, 0, "User VIP Trial phải được xem ngay (0 mã ẩn)");
         console.log("  ✅ 5.2 User VIP Trial có Token -> Xem đầy đủ mã Early Access (0 mã bị ẩn).");
 
-        // 5.3 Cố tình gửi fake user_id hoặc fake membership trong body -> Bị bỏ qua hoàn toàn
+        // 5.3 User Free có Token gửi kèm fake membership/user_id trong body -> Server vẫn lấy quyền từ DB/JWT (Free), mã Early Access bị ẩn
+        const testFreeUserId = `test_free_user_${testTimestamp}`;
+        await db.collection('users').insertOne({
+            _id: testFreeUserId,
+            email: `free_${testTimestamp}@example.com`,
+            membership: 'free',
+            vip_expired_at: null,
+            trial_used: true
+        });
+        const freeToken = jwt.sign({ user_id: testFreeUserId }, process.env.JWT_SECRET);
+
         const resScanFake = await fetch(`${BASE_URL}/api/scan`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${freeToken}`
+            },
             body: JSON.stringify({
                 shopee_link: `https://shopee.vn/fake-test-${testTimestamp}`,
                 membership: 'vip',
@@ -304,8 +327,8 @@ async function runTests() {
         });
         assert.strictEqual(resScanFake.status, 200);
         const dataScanFake = await resScanFake.json();
-        assert.ok(dataScanFake.new_vouchers_hidden_count >= 1, "Body fake membership/user_id phải bị lờ đi");
-        console.log("  ✅ 5.3 Client cố fake membership/user_id trong body hoàn toàn bị vô hiệu hóa.");
+        assert.ok(dataScanFake.new_vouchers_hidden_count >= 1, "Body fake membership/user_id phải bị lờ đi, User Free vẫn bị ẩn mã Early Access");
+        console.log("  ✅ 5.3 User Free gửi kèm Token và cố fake membership/user_id trong body hoàn toàn bị vô hiệu hóa.");
 
         // ==================================================================
         // 6. TEST RATE LIMITING CHO /api/auth/login (5 lần thử)
@@ -336,11 +359,15 @@ async function runTests() {
         console.log("==================================================================");
 
     } finally {
+        if (server) {
+            await new Promise((res) => server.close(res));
+        }
         // Dọn dẹp dữ liệu test trong database
         console.log("\n🧹 Dọn dẹp dữ liệu test trong database...");
         if (testUserId) {
             await db.collection('users').deleteOne({ _id: testUserId });
         }
+        await db.collection('users').deleteMany({ email: { $regex: `_${testTimestamp}@example.com$` } });
         await db.collection('live_vouchers').deleteMany({ code: { $regex: `^TEST_VIP_${testTimestamp}` } });
         console.log("✨ Đã dọn dẹp sạch sẽ.");
     }

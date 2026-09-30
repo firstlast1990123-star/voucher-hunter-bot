@@ -1,11 +1,11 @@
 const assert = require('assert');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { MongoClient } = require('mongodb');
 const jwt = require('jsonwebtoken');
 
-const app = require('./backend/server-app');
-const { connectDB } = require('./backend/db');
+const app = require('../backend/server-app');
+const { connectDB } = require('../backend/db');
 
 async function runTest() {
     console.log("=== BẮT ĐẦU TEST BẢO MẬT API /api/scan (KHÔNG TIN CLIENT MEMBERSHIP) ===");
@@ -61,41 +61,47 @@ async function runTest() {
         
         const testShopeeLink = `https://shopee.vn/test-product-${Date.now()}-i.12345.67890`;
         
-        // TEST 1: User Free cố tình giả mạo membership: "vip" trong body
-        console.log("1. Test User Free gửi body { membership: 'vip', user_id: free_id }...");
+        const freeToken = jwt.sign({ user_id: testFreeId }, process.env.JWT_SECRET);
+        const vipToken = jwt.sign({ user_id: testVipId }, process.env.JWT_SECRET);
+
+        // TEST 1: Khách vãng lai chưa đăng nhập -> BỊ CHẶN 401 UNAUTHORIZED
+        console.log("1. Test khách vãng lai chưa đăng nhập gọi /api/scan...");
         const res1 = await fetch(`${baseUrl}/api/scan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 shopee_link: testShopeeLink,
-                membership: "vip", // CỐ TÌNH FAKE VIP
+                membership: "vip",
                 user_id: testFreeId
             })
         });
+        assert.strictEqual(res1.status, 401, "Khách vãng lai chưa đăng nhập PHẢI bị chặn 401!");
         const data1 = await res1.json();
-        const hasEarlyVoucher1 = (data1.vouchers || []).some(v => v.code === testCode);
-        assert.strictEqual(hasEarlyVoucher1, false, "User Free KHÔNG ĐƯỢC PHÉP thấy mã mới phát hiện < 15 phút!");
-        assert.ok(data1.new_vouchers_hidden_count >= 1, "Phải báo có voucher bị ẩn");
-        console.log("✅ TEST 1 PASSED: Hệ thống đã chặn đứng nỗ lực fake membership: 'vip' từ client.");
+        assert.strictEqual(data1.error, "UNAUTHORIZED", "Phải trả về mã lỗi UNAUTHORIZED");
+        console.log("✅ TEST 1 PASSED: Khách vãng lai bị chặn 401 thành công, bắt buộc phải đăng nhập.");
 
-        // TEST 2: Không gửi user_id nhưng gửi membership: "vip"
-        console.log("2. Test ẩn danh gửi body { membership: 'vip' }...");
+        // TEST 2: User Free đã đăng nhập cố tình fake body membership: 'vip' -> Vẫn chỉ nhận quyền Free
+        console.log("2. Test User Free đã đăng nhập gửi kèm Bearer token + fake membership: 'vip' trong body...");
         const res2 = await fetch(`${baseUrl}/api/scan`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${freeToken}`
+            },
             body: JSON.stringify({
                 shopee_link: testShopeeLink,
-                membership: "vip" // FAKE VIP không có user_id
+                membership: "vip" // Cố tình fake VIP trong body
             })
         });
+        assert.strictEqual(res2.status, 200, "User Free đã đăng nhập PHẢI dùng được scanner 200 OK!");
         const data2 = await res2.json();
         const hasEarlyVoucher2 = (data2.vouchers || []).some(v => v.code === testCode);
-        assert.strictEqual(hasEarlyVoucher2, false, "Ẩn danh KHÔNG ĐƯỢC PHÉP thấy mã mới!");
-        console.log("✅ TEST 2 PASSED: Ẩn danh không thể bypass kiểm tra VIP.");
+        assert.strictEqual(hasEarlyVoucher2, false, "User Free KHÔNG ĐƯỢC PHÉP thấy mã mới phát hiện < 15 phút!");
+        assert.ok(data2.new_vouchers_hidden_count >= 1, "Phải báo có voucher bị ẩn cho Free user");
+        console.log("✅ TEST 2 PASSED: User Free fake body bị lờ đi, phân quyền dựa trên DB/Token.");
 
         // TEST 3: User VIP thật với JWT Bearer token
         console.log("3. Test User VIP thật gửi Bearer token...");
-        const vipToken = jwt.sign({ user_id: testVipId }, process.env.JWT_SECRET);
         const res3 = await fetch(`${baseUrl}/api/scan`, {
             method: 'POST',
             headers: {
@@ -112,20 +118,25 @@ async function runTest() {
         assert.strictEqual(data3.new_vouchers_hidden_count, 0, "User VIP không bị ẩn mã nào");
         console.log("✅ TEST 3 PASSED: User VIP thật với Bearer token được hiển thị đầy đủ mã Early Access.");
 
-        // TEST 4: Gửi user_id trong body mà không có token -> Bị bỏ qua hoàn toàn
-        console.log("4. Test User VIP gửi user_id trong body không có Bearer token...");
+        // TEST 4: User Free gửi kèm fake user_id của VIP trong body kèm Token Free -> Token quyết định, không tin body
+        console.log("4. Test User Free gửi user_id của VIP trong body kèm Token Free...");
         const res4 = await fetch(`${baseUrl}/api/scan`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${freeToken}`
+            },
             body: JSON.stringify({
                 shopee_link: testShopeeLink,
                 user_id: testVipId
             })
         });
+        assert.strictEqual(res4.status, 200);
         const data4 = await res4.json();
         const hasEarlyVoucher4 = (data4.vouchers || []).some(v => v.code === testCode);
-        assert.strictEqual(hasEarlyVoucher4, false, "Gửi user_id trong body KHÔNG ĐƯỢC tin, phải coi là Free!");
-        console.log("✅ TEST 4 PASSED: Body user_id hoàn toàn bị bỏ qua, hệ thống không tin dữ liệu client.");
+        assert.strictEqual(hasEarlyVoucher4, false, "Gửi user_id trong body KHÔNG ĐƯỢC tin, token Free vẫn là Free!");
+        assert.ok(data4.new_vouchers_hidden_count >= 1, "Phải báo có voucher bị ẩn");
+        console.log("✅ TEST 4 PASSED: Body user_id hoàn toàn bị bỏ qua, hệ thống chỉ tin JWT Token.");
 
         console.log("\n🎉 TẤT CẢ TEST BẢO MẬT SCAN API ĐÃ HOÀN TOÀN THÀNH CÔNG!");
 

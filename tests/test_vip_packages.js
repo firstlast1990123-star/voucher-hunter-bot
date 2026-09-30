@@ -1,12 +1,13 @@
 const crypto = require('crypto');
 const assert = require('assert');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { MongoClient } = require('mongodb');
 const jwt = require('jsonwebtoken');
-const { getEffectiveMembership } = require('./backend/authUtils');
+const { getEffectiveMembership } = require('../backend/authUtils');
+const app = require('../backend/server-app');
 
-const BASE_URL = 'http://localhost:3000';
+let BASE_URL = process.env.TEST_BASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET || 'voucher-hunter-jwt-secret-key-2026-very-secure';
 const CHECKSUM_KEY = process.env.PAYOS_CHECKSUM_KEY || '06590c9ee8673aebf7c219a73f3caebf202e846b995dc20f22681c6a6bb70318';
 
@@ -30,6 +31,16 @@ async function runAllVipPackageTests() {
     console.log("================================================================================");
     console.log("🚀 BẮT ĐẦU KIỂM THỬ TOÀN DIỆN HỆ THỐNG GÓI VIP (TUẦN 10K / THÁNG 17K)");
     console.log("================================================================================");
+
+    let server;
+    if (!BASE_URL) {
+        await new Promise((resolve) => {
+            server = app.listen(0, () => {
+                BASE_URL = `http://localhost:${server.address().port}`;
+                resolve();
+            });
+        });
+    }
 
     const client = new MongoClient(process.env.MONGO_URI);
     await client.connect();
@@ -442,6 +453,9 @@ async function runAllVipPackageTests() {
         console.log("================================================================================");
 
     } finally {
+        if (server) {
+            await new Promise((res) => server.close(res));
+        }
         // Dọn dẹp dữ liệu test
         if (cleanupUserIds.length > 0) {
             await db.collection('users').deleteMany({ _id: { $in: cleanupUserIds } });
@@ -454,7 +468,9 @@ async function runAllVipPackageTests() {
     }
 }
 
-runAllVipPackageTests().catch(err => {
+runAllVipPackageTests().then(() => {
+    process.exit(0);
+}).catch(err => {
     console.error("❌ TEST FAILED:", err);
     process.exit(1);
 });

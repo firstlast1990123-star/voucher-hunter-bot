@@ -1,8 +1,10 @@
 const assert = require('assert');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const app = require('../backend/server-app');
 
-const BASE_URL = 'http://localhost:3000';
+let BASE_URL = process.env.TEST_BASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET || 'voucher-hunter-jwt-secret-key-2026-very-secure';
 
 function createTestToken(userId) {
@@ -14,7 +16,18 @@ async function runRateLimitTests() {
     console.log("🚀 BẮT ĐẦU KIỂM THỬ RATE LIMITING TẦNG MẠNG (EXPRESS-RATE-LIMIT)");
     console.log("================================================================================");
 
-    const testToken = createTestToken('test_user_rate_limit');
+    let server;
+    if (!BASE_URL) {
+        await new Promise((resolve) => {
+            server = app.listen(0, () => {
+                BASE_URL = `http://localhost:${server.address().port}`;
+                resolve();
+            });
+        });
+    }
+
+    try {
+        const testToken = createTestToken('test_user_rate_limit');
 
     // -------------------------------------------------------------------------
     // 1. TEST /api/auth/register (Giới hạn: 5 req / 1 giờ theo IP)
@@ -180,9 +193,11 @@ async function runRateLimitTests() {
     assert.ok(healthAllOk, "/health không được bị chặn bởi rate limiter");
     console.log("  ✅ PASSED: /health hoạt động tự do và không bị ảnh hưởng bởi rate limiting!");
 
-    console.log("\n================================================================================");
-    console.log("🎉 TẤT CẢ CÁC BÀI TEST RATE LIMITING ĐÃ VƯỢT QUA 100% THÀNH CÔNG!");
-    console.log("================================================================================");
+    } finally {
+        if (server) {
+            await new Promise((res) => server.close(res));
+        }
+    }
 }
 
 runRateLimitTests().then(() => {
